@@ -4,3 +4,5 @@ elm-stuff
 elm.js
 node_modules
 .vercel
+
+.DS_Store
