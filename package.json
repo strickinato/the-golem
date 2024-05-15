@@ -8,6 +8,7 @@
   "scripts": {
     "build": "parcel build src/index.html",
     "dev": "parcel src/index.html",
-    "serve": "parcel build src/index.html && serve dist -p 1234"
+    "serve": "parcel build src/index.html && serve dist -p 1234",
+    "clean": "rm -rf .parcel-cache dist"
   }
 }
