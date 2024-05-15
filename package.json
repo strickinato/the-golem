@@ -6,9 +6,9 @@
     "serve": "^14.2.3"
   },
   "scripts": {
-    "build": "parcel build src/index.html",
+    "build": "parcel build src/index.html src/static/**/*",
     "dev": "parcel src/index.html",
-    "serve": "parcel build src/index.html && serve dist -p 1234",
+    "serve": "npm run build && serve dist -p 1234",
     "clean": "rm -rf .parcel-cache dist"
   }
 }
