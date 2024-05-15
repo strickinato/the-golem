@@ -10,7 +10,5 @@
     "dev": "parcel src/index.html",
     "serve": "parcel build src/index.html && serve dist -p 1234"
   },
-  "dependencies": {
-    "tone": "^14.7.77"
-  }
+  "dependencies": {}
 }
