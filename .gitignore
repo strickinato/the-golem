@@ -1,0 +1,6 @@
+.parcel-cache/
+dist/
+elm-stuff
+elm.js
+node_modules
+.vercel
