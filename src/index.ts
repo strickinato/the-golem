@@ -6,3 +6,11 @@ const app = Elm.Main.init({
   flags,
 });
 
+app.ports.clickedPlay.subscribe(() => {
+  const player = document.querySelector('audio');
+  player.play()
+})
+app.ports.clickedPause.subscribe(() => {
+  const player = document.querySelector('audio');
+  player.pause()
+})
