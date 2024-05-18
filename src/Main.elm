@@ -36,6 +36,8 @@ type State
 type alias GolemModel =
     { currentSong : Int
     , playerState : PlayerState
+    , currentTime : Float
+    , duration : Maybe Float
     }
 
 
@@ -53,8 +55,9 @@ type Msg
 
 type PlayerEvent
     = PlayerPaused
-    | PlayerStarted
+    | PlayerStarted Float
     | PlayerTrackEnded
+    | PlayerTimeUpdate Float Float
 
 
 type PlayerAction
@@ -83,7 +86,15 @@ update msg model =
             ( model, Cmd.none )
 
         Start ->
-            ( { model | state = InGolem { currentSong = 0, playerState = Playing } }
+            ( { model
+                | state =
+                    InGolem
+                        { currentSong = 0
+                        , currentTime = 0
+                        , playerState = Playing
+                        , duration = Nothing
+                        }
+              }
             , clickedPlay ()
             )
 
@@ -138,12 +149,17 @@ updateGolemFromEvent golemModel event =
         PlayerPaused ->
             ( { golemModel | playerState = Paused }, Cmd.none )
 
-        PlayerStarted ->
-            ( { golemModel | playerState = Playing }, Cmd.none )
+        PlayerStarted duration ->
+            ( { golemModel | playerState = Playing, duration = Just duration }, Cmd.none )
 
         PlayerTrackEnded ->
             ( { golemModel | currentSong = golemModel.currentSong + 1 }
             , clickedPlay ()
+            )
+
+        PlayerTimeUpdate time duration ->
+            ( { golemModel | currentTime = time, duration = Just duration }
+            , Cmd.none
             )
 
 
@@ -159,7 +175,7 @@ view model =
                         ]
                         [ Html.text "enter the golem" ]
 
-                InGolem { currentSong, playerState } ->
+                InGolem { currentSong, playerState, currentTime, duration } ->
                     Html.div
                         [ css
                             [ displayFlex
@@ -171,16 +187,31 @@ view model =
                             [ css
                                 [ width (px 600)
                                 , displayFlex
-                                , alignItems center
-                                , justifyContent center
+                                , overflow hidden
                                 ]
                             ]
-                            [ Html.img
-                                [ Attributes.src (imageSrc currentSong)
-                                , css [ width (pct 100) ]
-                                ]
-                                []
-                            ]
+                            ([ 0, 1, 2, 3, 4, 5, 6, 7 ]
+                                |> List.map
+                                    (\i ->
+                                        let
+                                            translateNegativeX =
+                                                duration
+                                                    |> Maybe.map (\dur -> (currentTime / dur) * 600)
+                                                    |> Maybe.withDefault 0
+                                                    |> (+) (600 * toFloat currentSong)
+                                        in
+                                        Html.img
+                                            [ Attributes.src (imageSrc i)
+                                            , css
+                                                [ width (pct 100)
+                                                , property
+                                                    "transform"
+                                                    ("translateX(-" ++ String.fromFloat translateNegativeX ++ "px)")
+                                                ]
+                                            ]
+                                            []
+                                    )
+                            )
                         , Html.div
                             [ css
                                 [ displayFlex
@@ -204,9 +235,16 @@ view model =
         ]
         [ Html.node "audio"
             [ Attributes.src (audioSrc model)
-            , Events.on "play" (Decode.succeed (ReceivedPlayerEvent PlayerStarted))
+            , Events.on "play"
+                (Decode.at [ "target", "duration" ] Decode.float
+                    |> Decode.map (ReceivedPlayerEvent << PlayerStarted)
+                )
             , Events.on "pause" (Decode.succeed (ReceivedPlayerEvent PlayerPaused))
             , Events.on "ended" (Decode.succeed (ReceivedPlayerEvent PlayerTrackEnded))
+            , Events.on "timeupdate" <|
+                Decode.map2 (\time duration -> ReceivedPlayerEvent (PlayerTimeUpdate time duration))
+                    (Decode.at [ "target", "currentTime" ] Decode.float)
+                    (Decode.at [ "target", "duration" ] Decode.float)
             ]
             []
         , internal
