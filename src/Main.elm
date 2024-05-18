@@ -60,6 +60,8 @@ type PlayerEvent
 type PlayerAction
     = PauseAction
     | PlayAction
+    | NextAction
+    | PrevAction
 
 
 init : () -> ( Model, Cmd Msg )
@@ -67,6 +69,11 @@ init flags =
     ( { state = Prelude }
     , Cmd.none
     )
+
+
+totalSongs : Int
+totalSongs =
+    8
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -80,11 +87,17 @@ update msg model =
             , clickedPlay ()
             )
 
-        PlayerAction PlayAction ->
-            ( model, clickedPlay () )
+        PlayerAction playerAction ->
+            case model.state of
+                Prelude ->
+                    ( model, Cmd.none )
 
-        PlayerAction PauseAction ->
-            ( model, clickedPause () )
+                InGolem golemState ->
+                    let
+                        ( newGolemState, cmd ) =
+                            updateGolemFromAction golemState playerAction
+                    in
+                    ( { model | state = InGolem newGolemState }, cmd )
 
         ReceivedPlayerEvent event ->
             case model.state of
@@ -94,13 +107,33 @@ update msg model =
                 InGolem golemState ->
                     let
                         ( newGolemState, cmd ) =
-                            updateGolemState golemState event
+                            updateGolemFromEvent golemState event
                     in
                     ( { model | state = InGolem newGolemState }, cmd )
 
 
-updateGolemState : GolemModel -> PlayerEvent -> ( GolemModel, Cmd Msg )
-updateGolemState golemModel event =
+updateGolemFromAction : GolemModel -> PlayerAction -> ( GolemModel, Cmd Msg )
+updateGolemFromAction golemModel playerAction =
+    case playerAction of
+        PauseAction ->
+            ( golemModel, clickedPause () )
+
+        PlayAction ->
+            ( golemModel, clickedPlay () )
+
+        NextAction ->
+            ( { golemModel | currentSong = min (totalSongs - 1) (golemModel.currentSong + 1) }
+            , clickedPlay ()
+            )
+
+        PrevAction ->
+            ( { golemModel | currentSong = max 0 (golemModel.currentSong - 1) }
+            , clickedPlay ()
+            )
+
+
+updateGolemFromEvent : GolemModel -> PlayerEvent -> ( GolemModel, Cmd Msg )
+updateGolemFromEvent golemModel event =
     case event of
         PlayerPaused ->
             ( { golemModel | playerState = Paused }, Cmd.none )
@@ -109,7 +142,9 @@ updateGolemState golemModel event =
             ( { golemModel | playerState = Playing }, Cmd.none )
 
         PlayerTrackEnded ->
-            ( { golemModel | currentSong = golemModel.currentSong + 1 }, clickedPlay () )
+            ( { golemModel | currentSong = golemModel.currentSong + 1 }
+            , clickedPlay ()
+            )
 
 
 view : Model -> Html Msg
@@ -132,12 +167,31 @@ view model =
                             , alignItems center
                             ]
                         ]
-                        [ Html.img
-                            [ css [ width (px 600) ]
-                            , Attributes.src (imageSrc currentSong)
+                        [ Html.div
+                            [ css
+                                [ width (px 600)
+                                , displayFlex
+                                , alignItems center
+                                , justifyContent center
+                                ]
                             ]
-                            []
-                        , playButton playerState
+                            [ Html.img
+                                [ Attributes.src (imageSrc currentSong)
+                                , css [ width (pct 100) ]
+                                ]
+                                []
+                            ]
+                        , Html.div
+                            [ css
+                                [ displayFlex
+                                , justifyContent spaceBetween
+                                , width (px 200)
+                                ]
+                            ]
+                            [ trackButton Prev
+                            , playButton playerState
+                            , trackButton Next
+                            ]
                         ]
     in
     Html.div
@@ -159,6 +213,37 @@ view model =
         ]
 
 
+type Direction
+    = Next
+    | Prev
+
+
+trackButton : Direction -> Html Msg
+trackButton direction =
+    let
+        ( button, msg ) =
+            case direction of
+                Next ->
+                    ( ">", PlayerAction NextAction )
+
+                Prev ->
+                    ( "<", PlayerAction PrevAction )
+    in
+    Html.div
+        [ css
+            [ cursor pointer
+            , width (px 44)
+            , height (px 44)
+            , displayFlex
+            , alignItems center
+            , justifyContent center
+            ]
+        , Attributes.tabindex 0
+        , Events.onClick msg
+        ]
+        [ Html.text button ]
+
+
 playButton : PlayerState -> Html Msg
 playButton state =
     let
@@ -169,6 +254,11 @@ playButton state =
                 [ cursor pointer
                 , property "width" "fit-content"
                 , fontSize (px 24)
+                , width (px 44)
+                , height (px 44)
+                , displayFlex
+                , alignItems center
+                , justifyContent center
                 ]
             ]
     in

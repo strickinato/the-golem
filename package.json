@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "parcel build src/index.html src/static/**/*",
-    "dev": "parcel src/index.html",
+    "dev": "parcel src/index.html src/static/**/*",
     "serve": "npm run build && serve dist -p 1234",
     "clean": "rm -rf .parcel-cache dist"
   }
