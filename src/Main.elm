@@ -22,6 +22,9 @@ port metadataReceived : (Encode.Value -> msg) -> Sub msg
 port timeUpdateReceived : (Encode.Value -> msg) -> Sub msg
 
 
+port songEndedReceived : (Encode.Value -> msg) -> Sub msg
+
+
 main =
     Browser.element
         { init = init
@@ -49,6 +52,7 @@ type Msg
     | Start
     | MetadataReceived ( Int, Metadata )
     | TimeUpdateReceived Float
+    | SongEndedReceived Int
     | PlayerAction PlayerAction
     | ReceivedPlayerEvent PlayerEvent
 
@@ -105,6 +109,11 @@ update msg model =
         TimeUpdateReceived currentTime ->
             ( { model | currentTime = currentTime }
             , Cmd.none
+            )
+
+        SongEndedReceived _ ->
+            ( { model | currentSong = model.currentSong + 1, currentTime = 0 }
+            , clickedPlay (model.currentSong + 1)
             )
 
         MetadataReceived ( songNumber, metaData ) ->
@@ -233,19 +242,7 @@ view model =
             , alignItems center
             ]
         ]
-        [ Html.node "audio"
-            [ Attributes.src (audioSrc model)
-            , Events.on "play" (Decode.succeed <| ReceivedPlayerEvent PlayerStarted)
-            , Events.on "pause" (Decode.succeed (ReceivedPlayerEvent PlayerPaused))
-            , Events.on "ended" (Decode.succeed (ReceivedPlayerEvent PlayerTrackEnded))
-            , Events.on "timeupdate" <|
-                (Decode.at [ "target", "currentTime" ] Decode.float
-                    |> Decode.map (ReceivedPlayerEvent << PlayerTimeUpdate)
-                )
-            ]
-            []
-        , internal
-        ]
+        [ internal ]
 
 
 totalTranslation : Model -> Float
@@ -362,8 +359,20 @@ subscriptions model =
 
                 Err e ->
                     NoOp
+
+        songendedDecoder =
+            Decode.field "songNumber" Decode.int
+
+        toSongEndedReceived value =
+            case Decode.decodeValue songendedDecoder value of
+                Ok songNumber ->
+                    SongEndedReceived songNumber
+
+                Err e ->
+                    NoOp
     in
     Sub.batch
         [ metadataReceived toMetadataReceived
         , timeUpdateReceived toTimeUpdateReceived
+        , songEndedReceived toSongEndedReceived
         ]

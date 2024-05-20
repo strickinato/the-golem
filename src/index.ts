@@ -8,8 +8,8 @@ const app = Elm.Main.init({
 
 let currentPlayer
 
-for (let i = 0; i < 8; i++ ) {
-  const el = document.getElementById(`song-${i+1}`)
+for (let i = 0; i < 8; i++) {
+  const el = document.getElementById(`song-${i + 1}`)
   if (i === 0) {
     currentPlayer = el
   }
@@ -17,7 +17,10 @@ for (let i = 0; i < 8; i++ ) {
     app.ports.metadataReceived.send({ id: i, duration: el.duration })
   )
   el.addEventListener("timeupdate", (e) => {
-    app.ports.timeUpdateReceived.send({currentTime: e.target.currentTime})
+    app.ports.timeUpdateReceived.send({ currentTime: e.target.currentTime })
+  })
+  el.addEventListener("ended", (e) => {
+    app.ports.songEndedReceived.send({ songNumber: i })
   })
 }
 
