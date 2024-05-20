@@ -10,6 +10,6 @@
     "dev": "parcel src/index.html src/static/**/*",
     "serve": "npm run build && serve dist -p 1234",
     "clean": "rm -rf .parcel-cache dist",
-    "deploy": "npm run clean; npm run build; vercel --prod"
+    "deploy": "npm run build && npm run clean && vercel --prod"
   }
 }
