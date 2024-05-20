@@ -297,11 +297,6 @@ imageSrc currentSong =
     "static/images/" ++ String.fromInt (currentSong + 1) ++ ".jpg"
 
 
-audioSrc : Model -> String
-audioSrc { currentSong } =
-    "static/songs/" ++ String.fromInt (currentSong + 1) ++ ".mp3"
-
-
 subscriptions : Model -> Sub Msg
 subscriptions model =
     let
