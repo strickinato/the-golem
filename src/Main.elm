@@ -361,10 +361,6 @@ subscriptions model =
                     TimeUpdateReceived currentTime
 
                 Err e ->
-                    let
-                        _ =
-                            Debug.log "E" e
-                    in
                     NoOp
     in
     Sub.batch
