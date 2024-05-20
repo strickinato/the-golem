@@ -54,18 +54,10 @@ type Msg
     | TimeUpdateReceived Float
     | SongEndedReceived Int
     | PlayerAction PlayerAction
-    | ReceivedPlayerEvent PlayerEvent
 
 
 type alias Metadata =
     { duration : Float }
-
-
-type PlayerEvent
-    = PlayerPaused
-    | PlayerStarted
-    | PlayerTrackEnded
-    | PlayerTimeUpdate Float
 
 
 type PlayerAction
@@ -124,9 +116,6 @@ update msg model =
         PlayerAction playerAction ->
             updateGolemFromAction model playerAction
 
-        ReceivedPlayerEvent event ->
-            updateGolemFromEvent model event
-
 
 updateGolemFromAction : Model -> PlayerAction -> ( Model, Cmd Msg )
 updateGolemFromAction model playerAction =
@@ -157,26 +146,6 @@ updateGolemFromAction model playerAction =
             in
             ( { model | currentSong = prevSong }
             , clickedPlay prevSong
-            )
-
-
-updateGolemFromEvent : Model -> PlayerEvent -> ( Model, Cmd Msg )
-updateGolemFromEvent model event =
-    case event of
-        PlayerPaused ->
-            ( { model | playerState = Paused }, Cmd.none )
-
-        PlayerStarted ->
-            ( { model | playerState = Playing }, Cmd.none )
-
-        PlayerTrackEnded ->
-            ( { model | currentSong = model.currentSong + 1 }
-            , clickedPlay (model.currentSong + 1)
-            )
-
-        PlayerTimeUpdate time ->
-            ( { model | currentTime = time }
-            , Cmd.none
             )
 
 
