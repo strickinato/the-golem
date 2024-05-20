@@ -2,6 +2,7 @@ port module Main exposing (..)
 
 import Browser
 import Css exposing (..)
+import Dict exposing (Dict)
 import Html.Styled as Html exposing (Attribute, Html)
 import Html.Styled.Attributes as Attributes exposing (css)
 import Html.Styled.Events as Events
@@ -9,10 +10,16 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
 
-port clickedPlay : () -> Cmd msg
+port clickedPlay : Int -> Cmd msg
 
 
 port clickedPause : () -> Cmd msg
+
+
+port metadataReceived : (Encode.Value -> msg) -> Sub msg
+
+
+port timeUpdateReceived : (Encode.Value -> msg) -> Sub msg
 
 
 main =
@@ -25,19 +32,10 @@ main =
 
 
 type alias Model =
-    { state : State }
-
-
-type State
-    = Prelude
-    | InGolem GolemModel
-
-
-type alias GolemModel =
-    { currentSong : Int
+    { songMetadata : Dict Int { duration : Float }
+    , currentSong : Int
     , playerState : PlayerState
     , currentTime : Float
-    , duration : Maybe Float
     }
 
 
@@ -49,15 +47,21 @@ type PlayerState
 type Msg
     = NoOp
     | Start
+    | MetadataReceived ( Int, Metadata )
+    | TimeUpdateReceived Float
     | PlayerAction PlayerAction
     | ReceivedPlayerEvent PlayerEvent
 
 
+type alias Metadata =
+    { duration : Float }
+
+
 type PlayerEvent
     = PlayerPaused
-    | PlayerStarted Float
+    | PlayerStarted
     | PlayerTrackEnded
-    | PlayerTimeUpdate Float Float
+    | PlayerTimeUpdate Float
 
 
 type PlayerAction
@@ -69,7 +73,11 @@ type PlayerAction
 
 init : () -> ( Model, Cmd Msg )
 init flags =
-    ( { state = Prelude }
+    ( { songMetadata = Dict.empty
+      , currentSong = 0
+      , playerState = Paused
+      , currentTime = 0
+      }
     , Cmd.none
     )
 
@@ -87,78 +95,78 @@ update msg model =
 
         Start ->
             ( { model
-                | state =
-                    InGolem
-                        { currentSong = 0
-                        , currentTime = 0
-                        , playerState = Playing
-                        , duration = Nothing
-                        }
+                | currentSong = 0
+                , currentTime = 0
+                , playerState = Playing
               }
-            , clickedPlay ()
+            , clickedPlay 0
+            )
+
+        TimeUpdateReceived currentTime ->
+            ( { model | currentTime = currentTime }
+            , Cmd.none
+            )
+
+        MetadataReceived ( songNumber, metaData ) ->
+            ( { model | songMetadata = Dict.insert songNumber metaData model.songMetadata }
+            , Cmd.none
             )
 
         PlayerAction playerAction ->
-            case model.state of
-                Prelude ->
-                    ( model, Cmd.none )
-
-                InGolem golemState ->
-                    let
-                        ( newGolemState, cmd ) =
-                            updateGolemFromAction golemState playerAction
-                    in
-                    ( { model | state = InGolem newGolemState }, cmd )
+            updateGolemFromAction model playerAction
 
         ReceivedPlayerEvent event ->
-            case model.state of
-                Prelude ->
-                    ( model, Cmd.none )
-
-                InGolem golemState ->
-                    let
-                        ( newGolemState, cmd ) =
-                            updateGolemFromEvent golemState event
-                    in
-                    ( { model | state = InGolem newGolemState }, cmd )
+            updateGolemFromEvent model event
 
 
-updateGolemFromAction : GolemModel -> PlayerAction -> ( GolemModel, Cmd Msg )
-updateGolemFromAction golemModel playerAction =
+updateGolemFromAction : Model -> PlayerAction -> ( Model, Cmd Msg )
+updateGolemFromAction model playerAction =
     case playerAction of
         PauseAction ->
-            ( golemModel, clickedPause () )
+            ( { model | playerState = Paused }, clickedPause () )
 
         PlayAction ->
-            ( golemModel, clickedPlay () )
+            ( { model | playerState = Playing }, clickedPlay model.currentSong )
 
         NextAction ->
-            ( { golemModel | currentSong = min (totalSongs - 1) (golemModel.currentSong + 1) }
-            , clickedPlay ()
+            let
+                nextSong =
+                    min (totalSongs - 1) (model.currentSong + 1)
+            in
+            ( { model | currentSong = nextSong }
+            , clickedPlay nextSong
             )
 
         PrevAction ->
-            ( { golemModel | currentSong = max 0 (golemModel.currentSong - 1) }
-            , clickedPlay ()
+            let
+                prevSong =
+                    if model.currentTime > 2 then
+                        model.currentSong
+
+                    else
+                        max 0 (model.currentSong - 1)
+            in
+            ( { model | currentSong = prevSong }
+            , clickedPlay prevSong
             )
 
 
-updateGolemFromEvent : GolemModel -> PlayerEvent -> ( GolemModel, Cmd Msg )
-updateGolemFromEvent golemModel event =
+updateGolemFromEvent : Model -> PlayerEvent -> ( Model, Cmd Msg )
+updateGolemFromEvent model event =
     case event of
         PlayerPaused ->
-            ( { golemModel | playerState = Paused }, Cmd.none )
+            ( { model | playerState = Paused }, Cmd.none )
 
-        PlayerStarted duration ->
-            ( { golemModel | playerState = Playing, duration = Just duration }, Cmd.none )
+        PlayerStarted ->
+            ( { model | playerState = Playing }, Cmd.none )
 
         PlayerTrackEnded ->
-            ( { golemModel | currentSong = golemModel.currentSong + 1 }
-            , clickedPlay ()
+            ( { model | currentSong = model.currentSong + 1 }
+            , clickedPlay (model.currentSong + 1)
             )
 
-        PlayerTimeUpdate time duration ->
-            ( { golemModel | currentTime = time, duration = Just duration }
+        PlayerTimeUpdate time ->
+            ( { model | currentTime = time }
             , Cmd.none
             )
 
@@ -166,64 +174,56 @@ updateGolemFromEvent golemModel event =
 view : Model -> Html Msg
 view model =
     let
-        internal =
-            case model.state of
-                Prelude ->
-                    Html.div
-                        [ Events.onClick Start
-                        , css [ cursor pointer ]
-                        ]
-                        [ Html.text "enter the golem" ]
+        { currentSong, playerState, currentTime } =
+            model
 
-                InGolem { currentSong, playerState, currentTime, duration } ->
-                    Html.div
-                        [ css
-                            [ displayFlex
-                            , flexDirection column
-                            , alignItems center
-                            ]
+        internal =
+            Html.div
+                [ css
+                    [ displayFlex
+                    , flexDirection column
+                    , alignItems center
+                    ]
+                ]
+                [ Html.div
+                    [ css
+                        [ width (px 600)
+                        , displayFlex
+                        , overflow hidden
                         ]
-                        [ Html.div
-                            [ css
-                                [ width (px 600)
-                                , displayFlex
-                                , overflow hidden
-                                ]
-                            ]
-                            ([ 0, 1, 2, 3, 4, 5, 6, 7 ]
-                                |> List.map
-                                    (\i ->
-                                        let
-                                            translateNegativeX =
-                                                duration
-                                                    |> Maybe.map (\dur -> (currentTime / dur) * 600)
-                                                    |> Maybe.withDefault 0
-                                                    |> (+) (600 * toFloat currentSong)
-                                        in
-                                        Html.img
-                                            [ Attributes.src (imageSrc i)
-                                            , css
-                                                [ width (pct 100)
-                                                , property
-                                                    "transform"
-                                                    ("translateX(-" ++ String.fromFloat translateNegativeX ++ "px)")
-                                                ]
-                                            ]
-                                            []
-                                    )
+                    ]
+                    ([ 0, 1, 2, 3, 4, 5, 6, 7 ]
+                        |> List.map
+                            (\i ->
+                                let
+                                    translateNegativeX =
+                                        totalTranslation model
+                                in
+                                Html.img
+                                    [ Attributes.src (imageSrc i)
+                                    , css
+                                        [ width (pct 100)
+                                        , property
+                                            "transform"
+                                            ("translateX(-" ++ String.fromFloat translateNegativeX ++ "px)")
+                                        , property "transition" "transform 250ms"
+                                        ]
+                                    ]
+                                    []
                             )
-                        , Html.div
-                            [ css
-                                [ displayFlex
-                                , justifyContent spaceBetween
-                                , width (px 200)
-                                ]
-                            ]
-                            [ trackButton Prev
-                            , playButton playerState
-                            , trackButton Next
-                            ]
+                    )
+                , Html.div
+                    [ css
+                        [ displayFlex
+                        , justifyContent spaceBetween
+                        , width (px 200)
                         ]
+                    ]
+                    [ trackButton Prev
+                    , playButton playerState
+                    , trackButton Next
+                    ]
+                ]
     in
     Html.div
         [ css
@@ -235,20 +235,29 @@ view model =
         ]
         [ Html.node "audio"
             [ Attributes.src (audioSrc model)
-            , Events.on "play"
-                (Decode.at [ "target", "duration" ] Decode.float
-                    |> Decode.map (ReceivedPlayerEvent << PlayerStarted)
-                )
+            , Events.on "play" (Decode.succeed <| ReceivedPlayerEvent PlayerStarted)
             , Events.on "pause" (Decode.succeed (ReceivedPlayerEvent PlayerPaused))
             , Events.on "ended" (Decode.succeed (ReceivedPlayerEvent PlayerTrackEnded))
             , Events.on "timeupdate" <|
-                Decode.map2 (\time duration -> ReceivedPlayerEvent (PlayerTimeUpdate time duration))
-                    (Decode.at [ "target", "currentTime" ] Decode.float)
-                    (Decode.at [ "target", "duration" ] Decode.float)
+                (Decode.at [ "target", "currentTime" ] Decode.float
+                    |> Decode.map (ReceivedPlayerEvent << PlayerTimeUpdate)
+                )
             ]
             []
         , internal
         ]
+
+
+totalTranslation : Model -> Float
+totalTranslation model =
+    let
+        dur =
+            Dict.get model.currentSong model.songMetadata
+                |> Maybe.map .duration
+                |> Maybe.withDefault 0
+    in
+    (toFloat model.currentSong + (model.currentTime / dur))
+        |> (*) 600
 
 
 type Direction
@@ -323,19 +332,42 @@ imageSrc currentSong =
 
 
 audioSrc : Model -> String
-audioSrc model =
-    let
-        current =
-            case model.state of
-                Prelude ->
-                    1
-
-                InGolem { currentSong } ->
-                    currentSong + 1
-    in
-    "static/songs/" ++ String.fromInt current ++ ".mp3"
+audioSrc { currentSong } =
+    "static/songs/" ++ String.fromInt (currentSong + 1) ++ ".mp3"
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch []
+    let
+        metadataDecoder =
+            Decode.map2 (\id duration -> ( id, duration ))
+                (Decode.field "id" Decode.int)
+                (Decode.field "duration" Decode.float)
+
+        toMetadataReceived value =
+            case Decode.decodeValue metadataDecoder value of
+                Ok ( songNumber, duration ) ->
+                    MetadataReceived ( songNumber, { duration = duration } )
+
+                Err e ->
+                    NoOp
+
+        timeUpdateDecoder =
+            Decode.field "currentTime" Decode.float
+
+        toTimeUpdateReceived value =
+            case Decode.decodeValue timeUpdateDecoder value of
+                Ok currentTime ->
+                    TimeUpdateReceived currentTime
+
+                Err e ->
+                    let
+                        _ =
+                            Debug.log "E" e
+                    in
+                    NoOp
+    in
+    Sub.batch
+        [ metadataReceived toMetadataReceived
+        , timeUpdateReceived toTimeUpdateReceived
+        ]

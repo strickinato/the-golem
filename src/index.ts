@@ -6,11 +6,32 @@ const app = Elm.Main.init({
   flags,
 });
 
-app.ports.clickedPlay.subscribe(() => {
-  const player = document.querySelector('audio');
+let currentPlayer
+
+for (let i = 0; i < 8; i++ ) {
+  const el = document.getElementById(`song-${i+1}`)
+  if (i === 0) {
+    currentPlayer = el
+  }
+  el.addEventListener("loadedmetadata", () =>
+    app.ports.metadataReceived.send({ id: i, duration: el.duration })
+  )
+  el.addEventListener("timeupdate", (e) => {
+    app.ports.timeUpdateReceived.send({currentTime: e.target.currentTime})
+  })
+}
+
+app.ports.clickedPlay.subscribe((songNumber) => {
+  const player = document.getElementById(`song-${songNumber + 1}`);
+  // They hit previous
+  if (currentPlayer === player) {
+    currentPlayer.currentTime = 0
+  } else {
+    currentPlayer?.pause()
+    currentPlayer = player
+  }
   requestAnimationFrame(() => player.play())
 })
 app.ports.clickedPause.subscribe(() => {
-  const player = document.querySelector('audio');
-  player.pause()
+  currentPlayer.pause()
 })
