@@ -16,13 +16,13 @@ port clickedPlay : Int -> Cmd msg
 port clickedPause : () -> Cmd msg
 
 
-port metadataReceived : (Encode.Value -> msg) -> Sub msg
+port receivedMetadata : (Encode.Value -> msg) -> Sub msg
 
 
-port timeUpdateReceived : (Encode.Value -> msg) -> Sub msg
+port receivedTimeUpdate : (Encode.Value -> msg) -> Sub msg
 
 
-port songEndedReceived : (Encode.Value -> msg) -> Sub msg
+port receivedSongEnded : (Encode.Value -> msg) -> Sub msg
 
 
 main =
@@ -50,9 +50,9 @@ type PlayerState
 type Msg
     = NoOp
     | Start
-    | MetadataReceived ( Int, Metadata )
-    | TimeUpdateReceived Float
-    | SongEndedReceived Int
+    | ReceivedMetadata ( Int, Metadata )
+    | ReceivedTimeUpdate Float
+    | ReceivedSongEnded Int
     | PlayerAction PlayerAction
 
 
@@ -98,17 +98,17 @@ update msg model =
             , clickedPlay 0
             )
 
-        TimeUpdateReceived currentTime ->
+        ReceivedTimeUpdate currentTime ->
             ( { model | currentTime = currentTime }
             , Cmd.none
             )
 
-        SongEndedReceived _ ->
+        ReceivedSongEnded _ ->
             ( { model | currentSong = model.currentSong + 1, currentTime = 0 }
             , clickedPlay (model.currentSong + 1)
             )
 
-        MetadataReceived ( songNumber, metaData ) ->
+        ReceivedMetadata ( songNumber, metaData ) ->
             ( { model | songMetadata = Dict.insert songNumber metaData model.songMetadata }
             , Cmd.none
             )
@@ -310,10 +310,10 @@ subscriptions model =
                 (Decode.field "id" Decode.int)
                 (Decode.field "duration" Decode.float)
 
-        toMetadataReceived value =
+        toReceivedMetadata value =
             case Decode.decodeValue metadataDecoder value of
                 Ok ( songNumber, duration ) ->
-                    MetadataReceived ( songNumber, { duration = duration } )
+                    ReceivedMetadata ( songNumber, { duration = duration } )
 
                 Err e ->
                     NoOp
@@ -321,10 +321,10 @@ subscriptions model =
         timeUpdateDecoder =
             Decode.field "currentTime" Decode.float
 
-        toTimeUpdateReceived value =
+        toReceivedTimeUpdate value =
             case Decode.decodeValue timeUpdateDecoder value of
                 Ok currentTime ->
-                    TimeUpdateReceived currentTime
+                    ReceivedTimeUpdate currentTime
 
                 Err e ->
                     NoOp
@@ -332,16 +332,16 @@ subscriptions model =
         songendedDecoder =
             Decode.field "songNumber" Decode.int
 
-        toSongEndedReceived value =
+        toReceivedSongEnded value =
             case Decode.decodeValue songendedDecoder value of
                 Ok songNumber ->
-                    SongEndedReceived songNumber
+                    ReceivedSongEnded songNumber
 
                 Err e ->
                     NoOp
     in
     Sub.batch
-        [ metadataReceived toMetadataReceived
-        , timeUpdateReceived toTimeUpdateReceived
-        , songEndedReceived toSongEndedReceived
+        [ receivedMetadata toReceivedMetadata
+        , receivedTimeUpdate toReceivedTimeUpdate
+        , receivedSongEnded toReceivedSongEnded
         ]

@@ -14,13 +14,13 @@ for (let i = 0; i < 8; i++) {
     currentPlayer = el
   }
   el.addEventListener("loadedmetadata", () =>
-    app.ports.metadataReceived.send({ id: i, duration: el.duration })
+    app.ports.receivedMetadata.send({ id: i, duration: el.duration })
   )
   el.addEventListener("timeupdate", (e) => {
-    app.ports.timeUpdateReceived.send({ currentTime: e.target.currentTime })
+    app.ports.receivedTimeUpdate.send({ currentTime: e.target.currentTime })
   })
   el.addEventListener("ended", (e) => {
-    app.ports.songEndedReceived.send({ songNumber: i })
+    app.ports.receivedSongEnded.send({ songNumber: i })
   })
 }
 
