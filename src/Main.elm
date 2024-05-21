@@ -265,28 +265,22 @@ type Direction
 
 trackButton : Direction -> Html Msg
 trackButton direction =
-    let
-        ( button, msg ) =
-            case direction of
-                Next ->
-                    ( ">", PlayerAction NextAction )
+    case direction of
+        Next ->
+            imageButton
+                { action = PlayerAction NextAction
+                , src = "static/images/next.webp"
+                , alt = "Go to next song"
+                , size = 16
+                }
 
-                Prev ->
-                    ( "<", PlayerAction PrevAction )
-    in
-    Html.div
-        [ css
-            [ cursor pointer
-            , width (px 44)
-            , height (px 44)
-            , displayFlex
-            , alignItems center
-            , justifyContent center
-            ]
-        , Attributes.tabindex 0
-        , Events.onClick msg
-        ]
-        [ Html.text button ]
+        Prev ->
+            imageButton
+                { action = PlayerAction PrevAction
+                , src = "static/images/prev.webp"
+                , alt = "Go to previous song"
+                , size = 16
+                }
 
 
 playButton : PlayerState -> Html Msg
@@ -311,17 +305,21 @@ playButton state =
 
 imageButton : { action : Msg, src : String, size : Int, alt : String } -> Html Msg
 imageButton { action, src, size, alt } =
+    let
+        paddingAmount =
+            44 - size
+    in
     Html.button
         [ Events.onClick action
         , css
             [ cursor pointer
             , property "width" "fit-content"
-            , fontSize (px 24)
             , displayFlex
             , alignItems center
             , justifyContent center
             , backgroundColor transparent
             , border zero
+            , padding (px <| toFloat paddingAmount)
             ]
         ]
         [ Html.img
