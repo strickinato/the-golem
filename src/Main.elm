@@ -262,16 +262,15 @@ playButton state =
     let
         attrs handler =
             [ Events.onClick handler
-            , Attributes.tabindex 0
             , css
                 [ cursor pointer
                 , property "width" "fit-content"
                 , fontSize (px 24)
-                , width (px 44)
-                , height (px 44)
                 , displayFlex
                 , alignItems center
                 , justifyContent center
+                , backgroundColor transparent
+                , border zero
                 ]
             ]
     in
@@ -279,12 +278,26 @@ playButton state =
         Playing ->
             Html.div
                 (attrs (PlayerAction PauseAction))
-                [ Html.text "⏸" ]
+                [ Html.img
+                    [ Attributes.src "static/images/pause.webp"
+                    , Attributes.width 32
+                    , Attributes.height 32
+                    , Attributes.alt "pause button"
+                    ]
+                    []
+                ]
 
         Paused ->
-            Html.div
+            Html.button
                 (attrs (PlayerAction PlayAction))
-                [ Html.text "⏵" ]
+                [ Html.img
+                    [ Attributes.src "static/images/play.webp"
+                    , Attributes.width 32
+                    , Attributes.height 32
+                    , Attributes.alt "play button"
+                    ]
+                    []
+                ]
 
 
 palette =
