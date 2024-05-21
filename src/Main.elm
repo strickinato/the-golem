@@ -281,7 +281,7 @@ viewDots model =
 totalTranslation : Model -> Float
 totalTranslation model =
     toFloat model.currentSong
-        |> (*) 600
+        |> (*) 800
 
 
 dot : { n : ( Int, Int ), s : ( Int, Int ), e : ( Int, Int ), w : ( Int, Int ) } -> Color -> Svg msg
