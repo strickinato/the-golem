@@ -197,7 +197,14 @@ view model =
 
             else
                 [ Html.div
-                    [ css [ width (px 600), displayFlex, cursor pointer ]
+                    [ css
+                        [ width (px 600)
+                        , displayFlex
+                        , cursor pointer
+                        ]
+                    , Events.onClick Start
+                    , Attributes.property "aria-role" (Encode.string "button")
+                    , Attributes.tabindex 0
                     ]
                     [ Html.img
                         [ Attributes.src "static/images/cover.jpg"
@@ -207,16 +214,24 @@ view model =
                         ]
                         []
                     ]
-                , Html.button
-                    [ css
-                        [ color palette.white
-                        , border zero
-                        , backgroundColor transparent
-                        , cursor pointer
-                        ]
-                    , Events.onClick Start
-                    ]
-                    [ playButton model.playerState ]
+                , imageButton
+                    { action = Start
+                    , src = "static/images/play.webp"
+                    , alt = "Click to enter the golem"
+                    , size = 32
+                    }
+
+                -- TODO do we want this text?
+                -- , Html.div
+                --     [ css
+                --         [ color palette.white
+                --         , cursor pointer
+                --         ]
+                --     , Events.onClick Start
+                --     , Attributes.property "aria-role" (Encode.string "button")
+                --     , Attributes.tabindex 0
+                --     ]
+                --     [ Html.text "Enter The Golem" ]
                 ]
     in
     Html.div
@@ -225,6 +240,7 @@ view model =
             , flexDirection column
             , justifyContent center
             , alignItems center
+            , property "gap" "24px"
             ]
         ]
         internal
@@ -275,45 +291,47 @@ trackButton direction =
 
 playButton : PlayerState -> Html Msg
 playButton state =
-    let
-        attrs handler =
-            [ Events.onClick handler
-            , css
-                [ cursor pointer
-                , property "width" "fit-content"
-                , fontSize (px 24)
-                , displayFlex
-                , alignItems center
-                , justifyContent center
-                , backgroundColor transparent
-                , border zero
-                ]
-            ]
-    in
     case state of
         Playing ->
-            Html.div
-                (attrs (PlayerAction PauseAction))
-                [ Html.img
-                    [ Attributes.src "static/images/pause.webp"
-                    , Attributes.width 32
-                    , Attributes.height 32
-                    , Attributes.alt "pause button"
-                    ]
-                    []
-                ]
+            imageButton
+                { action = PlayerAction PauseAction
+                , src = "static/images/pause.webp"
+                , size = 32
+                , alt = "pause button"
+                }
 
         Paused ->
-            Html.button
-                (attrs (PlayerAction PlayAction))
-                [ Html.img
-                    [ Attributes.src "static/images/play.webp"
-                    , Attributes.width 32
-                    , Attributes.height 32
-                    , Attributes.alt "play button"
-                    ]
-                    []
-                ]
+            imageButton
+                { action = PlayerAction PlayAction
+                , src = "static/images/play.webp"
+                , size = 32
+                , alt = "play button"
+                }
+
+
+imageButton : { action : Msg, src : String, size : Int, alt : String } -> Html Msg
+imageButton { action, src, size, alt } =
+    Html.button
+        [ Events.onClick action
+        , css
+            [ cursor pointer
+            , property "width" "fit-content"
+            , fontSize (px 24)
+            , displayFlex
+            , alignItems center
+            , justifyContent center
+            , backgroundColor transparent
+            , border zero
+            ]
+        ]
+        [ Html.img
+            [ Attributes.src src
+            , Attributes.width size
+            , Attributes.height size
+            , Attributes.alt alt
+            ]
+            []
+        ]
 
 
 palette =
