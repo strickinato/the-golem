@@ -39,6 +39,7 @@ type alias Model =
     , currentSong : Int
     , playerState : PlayerState
     , currentTime : Float
+    , hasStarted : Bool
     }
 
 
@@ -73,6 +74,7 @@ init flags =
       , currentSong = 0
       , playerState = Paused
       , currentTime = 0
+      , hasStarted = False
       }
     , Cmd.none
     )
@@ -91,9 +93,8 @@ update msg model =
 
         Start ->
             ( { model
-                | currentSong = 0
-                , currentTime = 0
-                , playerState = Playing
+                | playerState = Playing
+                , hasStarted = True
               }
             , clickedPlay 0
             )
@@ -152,17 +153,8 @@ updateGolemFromAction model playerAction =
 view : Model -> Html Msg
 view model =
     let
-        { currentSong, playerState, currentTime } =
-            model
-
         internal =
-            Html.div
-                [ css
-                    [ displayFlex
-                    , flexDirection column
-                    , alignItems center
-                    ]
-                ]
+            if model.hasStarted then
                 [ Html.div
                     [ css
                         [ width (px 600)
@@ -198,20 +190,44 @@ view model =
                         ]
                     ]
                     [ trackButton Prev
-                    , playButton playerState
+                    , playButton model.playerState
                     , trackButton Next
                     ]
+                ]
+
+            else
+                [ Html.div
+                    [ css [ width (px 600), displayFlex, cursor pointer ]
+                    ]
+                    [ Html.img
+                        [ Attributes.src "static/images/cover.jpg"
+                        , Attributes.alt "Cover image for The Golem, by Sam Reider and the Human Hands"
+                        , Events.onClick Start
+                        , css [ width (pct 100) ]
+                        ]
+                        []
+                    ]
+                , Html.button
+                    [ css
+                        [ color palette.white
+                        , border zero
+                        , backgroundColor transparent
+                        , cursor pointer
+                        ]
+                    , Events.onClick Start
+                    ]
+                    [ playButton model.playerState ]
                 ]
     in
     Html.div
         [ css
-            [ color palette.white
-            , displayFlex
+            [ displayFlex
+            , flexDirection column
             , justifyContent center
             , alignItems center
             ]
         ]
-        [ internal ]
+        internal
 
 
 totalTranslation : Model -> Float
