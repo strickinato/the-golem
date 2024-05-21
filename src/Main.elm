@@ -243,7 +243,7 @@ viewDots : Model -> Html msg
 viewDots model =
     let
         numDots =
-            20
+            16
 
         pxWidth =
             480
@@ -258,7 +258,14 @@ viewDots model =
                 |> (\dur -> model.currentTime / dur)
                 |> (\normalPos -> floor (normalPos * numDots))
     in
-    Html.div [ css [ width (px pxWidth), displayFlex, justifyContent spaceBetween ] ]
+    Html.div
+        [ css
+            [ width (px pxWidth)
+            , displayFlex
+            , justifyContent center
+            , property "gap" "8px"
+            ]
+        ]
         (dots
             |> List.indexedMap
                 (\index dot_ ->
@@ -314,7 +321,7 @@ dotGenerator : Generator (Color -> Svg msg)
 dotGenerator =
     let
         range =
-            8
+            12
 
         fromBase ( x, y ) =
             Random.pair
