@@ -20,15 +20,6 @@ port clickedPlay : Int -> Cmd msg
 port clickedPause : () -> Cmd msg
 
 
-port receivedMetadata : (Encode.Value -> msg) -> Sub msg
-
-
-port receivedTimeUpdate : (Encode.Value -> msg) -> Sub msg
-
-
-port receivedSongEnded : (Encode.Value -> msg) -> Sub msg
-
-
 main =
     Browser.element
         { init = init
@@ -55,7 +46,7 @@ type PlayerState
 type Msg
     = NoOp
     | Start
-    | ReceivedMetadata ( Int, Metadata )
+    | ReceivedMetadata Int Metadata
     | ReceivedTimeUpdate Float
     | ReceivedSongEnded Int
     | PlayerAction PlayerAction
@@ -113,7 +104,7 @@ update msg model =
             , clickedPlay (model.currentSong + 1)
             )
 
-        ReceivedMetadata ( songNumber, metaData ) ->
+        ReceivedMetadata songNumber metaData ->
             ( { model | songMetadata = Dict.insert songNumber metaData model.songMetadata }
             , Cmd.none
             )
@@ -236,7 +227,28 @@ view model =
             , property "gap" "8px"
             ]
         ]
-        internal
+        (loadPlayers model :: internal)
+
+
+loadPlayers : Model -> Html Msg
+loadPlayers model =
+    let
+        player int =
+            Html.audio
+                [ Attributes.id <| "song-" ++ String.fromInt (int + 1)
+                , Attributes.property "preload" (Encode.string "metadata")
+                , Attributes.src <| "static/songs/" ++ String.fromInt (int + 1) ++ ".mp3"
+                , Events.on "loadedmetadata"
+                    (metadataDecoder |> Decode.map (ReceivedMetadata int))
+                , Events.on "timeupdate"
+                    (timeUpdateDecoder |> Decode.map ReceivedTimeUpdate)
+                , Events.on "ended"
+                    (Decode.succeed (ReceivedSongEnded int))
+                ]
+                []
+    in
+    Html.div [ css [ display none ] ]
+        (List.range 0 7 |> List.map player)
 
 
 viewDots : Model -> Html msg
@@ -431,46 +443,17 @@ imageSrc currentSong =
     "static/images/" ++ String.fromInt (currentSong + 1) ++ ".jpg"
 
 
+metadataDecoder : Decoder Metadata
+metadataDecoder =
+    Decode.map Metadata
+        (Decode.at [ "target", "duration" ] Decode.float)
+
+
+timeUpdateDecoder : Decoder Float
+timeUpdateDecoder =
+    Decode.at [ "target", "currentTime" ] Decode.float
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    let
-        metadataDecoder =
-            Decode.map2 (\id duration -> ( id, duration ))
-                (Decode.field "id" Decode.int)
-                (Decode.field "duration" Decode.float)
-
-        toReceivedMetadata value =
-            case Decode.decodeValue metadataDecoder value of
-                Ok ( songNumber, duration ) ->
-                    ReceivedMetadata ( songNumber, { duration = duration } )
-
-                Err e ->
-                    NoOp
-
-        timeUpdateDecoder =
-            Decode.field "currentTime" Decode.float
-
-        toReceivedTimeUpdate value =
-            case Decode.decodeValue timeUpdateDecoder value of
-                Ok currentTime ->
-                    ReceivedTimeUpdate currentTime
-
-                Err e ->
-                    NoOp
-
-        songendedDecoder =
-            Decode.field "songNumber" Decode.int
-
-        toReceivedSongEnded value =
-            case Decode.decodeValue songendedDecoder value of
-                Ok songNumber ->
-                    ReceivedSongEnded songNumber
-
-                Err e ->
-                    NoOp
-    in
-    Sub.batch
-        [ receivedMetadata toReceivedMetadata
-        , receivedTimeUpdate toReceivedTimeUpdate
-        , receivedSongEnded toReceivedSongEnded
-        ]
+    Sub.batch []
