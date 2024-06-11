@@ -1,3 +1,7 @@
+import { Elm } from "./Main.elm";
+
+const ELEMENT_ID = "golem-mount-point"
+
 const ARTIST = "Sam Reider & The Human Hands"
 const ALBUM = "The Golem and Other Tales"
 const SONG_NAMES = [
@@ -11,12 +15,28 @@ const SONG_NAMES = [
   "Return To Mud",
 ]
 
-const node = document.getElementById("mount");
+const SONGS = [
+  {
+    name: "In Darkness, a Rabbi's Prayer",
+    audioUrl: "static/songs/1.mp3",
+    imageUrl: "static/images/1.jpg",
+  },
+  {
+    name: "A Mysterious Stranger With An Extraordinary Idea",
+    audioUrl: "static/songs/2.mp3",
+    imageUrl: "static/images/2.jpg",
+  }
+]
+
+const node = document.getElementById(ELEMENT_ID);
 
 const app = Elm.Main.init({
-  node
+  node,
+  flags: {
+    songs: SONGS,
+    coverUrl: "/static/images/cover.jpg"
+  },
 });
-
 
 
 app.ports.clickedPlay.subscribe((songNumber) => {
@@ -39,7 +59,7 @@ app.ports.clickedPlay.subscribe((songNumber) => {
         album: ALBUM,
         artwork: [
           {
-            src: `static/images/${songNumber + 1}.jpg`,
+            src: SONGS[songNumber].audioUrl,
             sizes: "878x878",
             type: "image/jpg",
           }

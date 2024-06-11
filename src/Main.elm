@@ -7,6 +7,7 @@ import Html.Styled as Html exposing (Attribute, Html)
 import Html.Styled.Attributes as Attributes exposing (css)
 import Html.Styled.Events as Events
 import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra as Decode
 import Json.Encode as Encode
 import Random exposing (Generator)
 import Random.Extra as Random exposing (andMap)
@@ -30,11 +31,20 @@ main =
 
 
 type alias Model =
-    { songMetadata : Dict Int { duration : Float }
+    { songs : Dict Int Song
     , currentSong : Int
     , playerState : PlayerState
     , currentTime : Float
+    , coverUrl : String
     , hasStarted : Bool
+    }
+
+
+type alias Song =
+    { name : String
+    , audioUrl : String
+    , imageUrl : String
+    , duration : Maybe Float
     }
 
 
@@ -63,10 +73,16 @@ type PlayerAction
     | PrevAction
 
 
-init : () -> ( Model, Cmd Msg )
-init flags =
-    ( { songMetadata = Dict.empty
+init : Encode.Value -> ( Model, Cmd Msg )
+init incomingJson =
+    let
+        flags =
+            Decode.decodeValue flagsDecoder incomingJson
+                |> Result.withDefault flagsDefault
+    in
+    ( { songs = flags.songs
       , currentSong = 0
+      , coverUrl = flags.coverUrl
       , playerState = Paused
       , currentTime = 0
       , hasStarted = False
@@ -75,9 +91,50 @@ init flags =
     )
 
 
-totalSongs : Int
-totalSongs =
-    8
+type alias Flags =
+    { songs : Dict Int Song, coverUrl : String }
+
+
+flagsDecoder : Decoder Flags
+flagsDecoder =
+    Decode.map2 Flags
+        (Decode.field "songs" songsDecoder)
+        (Decode.field "coverUrl" Decode.string)
+
+
+flagsDefault : Flags
+flagsDefault =
+    { songs = Dict.empty, coverUrl = "" }
+
+
+songsDecoder : Decoder (Dict Int Song)
+songsDecoder =
+    Decode.indexedList
+        (\i ->
+            songDecoder
+                |> Decode.map (\s -> ( i, s ))
+        )
+        |> Decode.map Dict.fromList
+
+
+songDecoder : Decoder Song
+songDecoder =
+    Decode.map3
+        (\name audioUrl imageUrl ->
+            { name = name
+            , audioUrl = audioUrl
+            , imageUrl = imageUrl
+            , duration = Nothing
+            }
+        )
+        (Decode.field "name" Decode.string)
+        (Decode.field "audioUrl" Decode.string)
+        (Decode.field "imageUrl" Decode.string)
+
+
+totalSongs : Model -> Int
+totalSongs model =
+    model.songs |> Dict.size
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -105,7 +162,11 @@ update msg model =
             )
 
         ReceivedMetadata songNumber metaData ->
-            ( { model | songMetadata = Dict.insert songNumber metaData model.songMetadata }
+            let
+                updateFn song =
+                    song |> Maybe.map (\s -> { s | duration = Just metaData.duration })
+            in
+            ( { model | songs = Dict.update songNumber updateFn model.songs }
             , Cmd.none
             )
 
@@ -125,7 +186,7 @@ updateGolemFromAction model playerAction =
         NextAction ->
             let
                 nextSong =
-                    min (totalSongs - 1) (model.currentSong + 1)
+                    min (totalSongs model - 1) (model.currentSong + 1)
             in
             ( { model | currentSong = nextSong }
             , clickedPlay nextSong
@@ -157,9 +218,10 @@ view model =
                         , overflow hidden
                         ]
                     ]
-                    ([ 0, 1, 2, 3, 4, 5, 6, 7 ]
+                    (model.songs
+                        |> Dict.toList
                         |> List.map
-                            (\i ->
+                            (\( i, _ ) ->
                                 let
                                     translateNegativeX =
                                         totalTranslation model
@@ -203,7 +265,7 @@ view model =
                     , Attributes.tabindex 0
                     ]
                     [ Html.img
-                        [ Attributes.src "static/images/cover.jpg"
+                        [ Attributes.src model.coverUrl
                         , Attributes.alt "Cover image for The Golem, by Sam Reider and the Human Hands"
                         , Events.onClick Start
                         , css [ width (pct 100) ]
@@ -233,11 +295,11 @@ view model =
 loadPlayers : Model -> Html Msg
 loadPlayers model =
     let
-        player int =
+        player ( int, song ) =
             Html.audio
                 [ Attributes.id <| "song-" ++ String.fromInt (int + 1)
                 , Attributes.property "preload" (Encode.string "metadata")
-                , Attributes.src <| "static/songs/" ++ String.fromInt (int + 1) ++ ".mp3"
+                , Attributes.src <| song.audioUrl
                 , Events.on "loadedmetadata"
                     (metadataDecoder |> Decode.map (ReceivedMetadata int))
                 , Events.on "timeupdate"
@@ -248,7 +310,7 @@ loadPlayers model =
                 []
     in
     Html.div [ css [ display none ] ]
-        (List.range 0 7 |> List.map player)
+        (model.songs |> Dict.toList |> List.map player)
 
 
 viewDots : Model -> Html msg
@@ -264,8 +326,8 @@ viewDots model =
             Random.step (Random.list numDots dotGenerator) (Random.initialSeed 0)
 
         currentDot =
-            Dict.get model.currentSong model.songMetadata
-                |> Maybe.map .duration
+            Dict.get model.currentSong model.songs
+                |> Maybe.andThen .duration
                 |> Maybe.withDefault 100000
                 |> (\dur -> model.currentTime / dur)
                 |> (\normalPos -> floor (normalPos * numDots))
