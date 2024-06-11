@@ -1,6 +1,13 @@
 import { Elm } from "./Main.elm";
 import { SONGS } from "./songs"
 
+const MEDIA_URLS = {
+  cover: "/static/images/cover.jpg",
+  next: "/static/images/next.jpg",
+  play: "/static/images/play.jpg",
+  prev: "/static/images/prev.jpg",
+  pause: "/static/images/pause.jpg",
+}
 
 const ELEMENT_ID = "golem-mount-point"
 
@@ -13,7 +20,7 @@ const app = Elm.Main.init({
   node,
   flags: {
     songs: SONGS,
-    coverUrl: "/static/images/cover.jpg"
+    mediaUrls: MEDIA_URLS,
   },
 });
 

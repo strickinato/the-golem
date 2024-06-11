@@ -35,7 +35,7 @@ type alias Model =
     , currentSong : Int
     , playerState : PlayerState
     , currentTime : Float
-    , coverUrl : String
+    , mediaUrls : MediaUrls
     , hasStarted : Bool
     }
 
@@ -45,6 +45,15 @@ type alias Song =
     , audioUrl : String
     , imageUrl : String
     , duration : Maybe Float
+    }
+
+
+type alias MediaUrls =
+    { cover : String
+    , pause : String
+    , play : String
+    , prev : String
+    , next : String
     }
 
 
@@ -82,7 +91,7 @@ init incomingJson =
     in
     ( { songs = flags.songs
       , currentSong = 0
-      , coverUrl = flags.coverUrl
+      , mediaUrls = flags.mediaUrls
       , playerState = Paused
       , currentTime = 0
       , hasStarted = False
@@ -92,19 +101,31 @@ init incomingJson =
 
 
 type alias Flags =
-    { songs : Dict Int Song, coverUrl : String }
+    { songs : Dict Int Song, mediaUrls : MediaUrls }
 
 
 flagsDecoder : Decoder Flags
 flagsDecoder =
     Decode.map2 Flags
         (Decode.field "songs" songsDecoder)
-        (Decode.field "coverUrl" Decode.string)
+        (Decode.field "mediaUrls" mediaUrlsDecoder)
 
 
 flagsDefault : Flags
 flagsDefault =
-    { songs = Dict.empty, coverUrl = "" }
+    { songs = Dict.empty
+    , mediaUrls = MediaUrls "" "" "" "" ""
+    }
+
+
+mediaUrlsDecoder : Decoder MediaUrls
+mediaUrlsDecoder =
+    Decode.map5 MediaUrls
+        (Decode.field "cover" Decode.string)
+        (Decode.field "pause" Decode.string)
+        (Decode.field "play" Decode.string)
+        (Decode.field "prev" Decode.string)
+        (Decode.field "next" Decode.string)
 
 
 songsDecoder : Decoder (Dict Int Song)
@@ -221,13 +242,13 @@ view model =
                     (model.songs
                         |> Dict.toList
                         |> List.map
-                            (\( i, _ ) ->
+                            (\( i, song ) ->
                                 let
                                     translateNegativeX =
                                         totalTranslation model
                                 in
                                 Html.img
-                                    [ Attributes.src (imageSrc i)
+                                    [ Attributes.src song.imageUrl
                                     , css
                                         [ width (pct 100)
                                         , property
@@ -265,7 +286,7 @@ view model =
                     , Attributes.tabindex 0
                     ]
                     [ Html.img
-                        [ Attributes.src model.coverUrl
+                        [ Attributes.src model.mediaUrls.cover
                         , Attributes.alt "Cover image for The Golem, by Sam Reider and the Human Hands"
                         , Events.onClick Start
                         , css [ width (pct 100) ]
@@ -498,11 +519,6 @@ palette =
     { white = rgb 203 172 139
     , blue = rgb 128 174 209
     }
-
-
-imageSrc : Int -> String
-imageSrc currentSong =
-    "static/images/" ++ String.fromInt (currentSong + 1) ++ ".jpg"
 
 
 metadataDecoder : Decoder Metadata
