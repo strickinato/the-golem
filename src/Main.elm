@@ -234,7 +234,7 @@ view model =
             if model.hasStarted then
                 [ Html.div
                     [ css
-                        [ width (px 800)
+                        [ maxWidth (px 800)
                         , displayFlex
                         , overflow hidden
                         ]
@@ -277,7 +277,7 @@ view model =
             else
                 [ Html.div
                     [ css
-                        [ width (px 800)
+                        [ maxWidth (px 800)
                         , displayFlex
                         , cursor pointer
                         ]
