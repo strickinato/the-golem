@@ -92,6 +92,7 @@ type PlayerAction
     | PlayAction
     | NextAction
     | PrevAction
+    | GoToSong Int
 
 
 init : Encode.Value -> ( Model, Cmd Msg )
@@ -253,6 +254,16 @@ advanceFade model float =
 updateGolemFromAction : Model -> PlayerAction -> ( Model, Cmd Msg )
 updateGolemFromAction model playerAction =
     case playerAction of
+        GoToSong int ->
+            case timeForIndex model int of
+                Just t ->
+                    ( { model | currentTime = t }
+                    , goToTime t
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
         PauseAction ->
             ( { model | playerState = Paused }, clickedPause () )
 
@@ -280,6 +291,12 @@ updateGolemFromAction model playerAction =
 
                 Nothing ->
                     ( model, Cmd.none )
+
+
+timeForIndex : Model -> Int -> Maybe Float
+timeForIndex model index =
+    Dict.get index model.songs
+        |> Maybe.map .startingTime
 
 
 songsForTime : Model -> Float -> { current : Maybe ( Song, Int ), prev : Maybe Song, next : Maybe Song }
@@ -483,17 +500,23 @@ loadMainPlayer model =
         []
 
 
-viewDots : Model -> Html msg
+viewDots : Model -> Html Msg
 viewDots model =
     model.songs
         |> Dict.toList
         |> List.map
             (\( i, song ) ->
                 Html.div
-                    [ css [ width (px 44), height (px 44) ] ]
+                    [ css
+                        [ width (px 44)
+                        , height (px 44)
+                        , cursor pointer
+                        ]
+                    ]
                     [ Html.img
                         [ Attributes.src song.numeralUrl
                         , Attributes.alt ("Roman Numeral for" ++ String.fromInt (i + 1))
+                        , Events.onClick (PlayerAction (GoToSong i))
                         , css
                             [ width (pct 100)
                             , if currentSongIndex model == Just i then
