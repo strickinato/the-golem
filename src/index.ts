@@ -5,6 +5,7 @@ const { SONGS, MEDIA_URLS } = GET_ASSETS()
 
 
 const ELEMENT_ID = "golem-mount-point"
+const GOLEM_PLAYER_ID = "CURRENT-GOLEM-PLAYER"
 
 const ARTIST = "Sam Reider & The Human Hands"
 const ALBUM = "The Golem and Other Tales"
@@ -21,34 +22,33 @@ const app = Elm.Main.init({
 
 
 app.ports.clickedPlay.subscribe((songNumber) => {
-  const player = document.getElementById(`song-${songNumber + 1}`);
-  // They hit previous
-  if (window.CURRENT_GOLEM === player) {
-    window.CURRENT_GOLEM.currentTime = 0
-  } else {
-    window.CURRENT_GOLEM?.pause()
-    window.CURRENT_GOLEM = player
-  }
-  requestAnimationFrame(() => {
-    player.play()
+  const player = document.getElementById(GOLEM_PLAYER_ID);
+  player.play()
 
-    if (window.navigator) {
+  // if (window.navigator) {
 
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: SONGS[songNumber].name,
-        artist: ARTIST,
-        album: ALBUM,
-        artwork: [
-          {
-            src: SONGS[songNumber].imageUrl,
-            sizes: "878x878",
-            type: "image/jpg",
-          }
-        ],
-      });
-    }
-  })
+  //   navigator.mediaSession.metadata = new MediaMetadata({
+  //     title: SONGS[songNumber].name,
+  //     artist: ARTIST,
+  //     album: ALBUM,
+  //     artwork: [
+  //       {
+  //         src: SONGS[songNumber].imageUrl,
+  //         sizes: "878x878",
+  //         type: "image/jpg",
+  //       }
+  //     ],
+  //   });
+  // }
+
 })
+
 app.ports.clickedPause.subscribe(() => {
-  window.CURRENT_GOLEM.pause()
+  const player = document.getElementById(GOLEM_PLAYER_ID);
+  player.pause()
+})
+
+app.ports.goToTime.subscribe((time) => {
+  const player = document.getElementById(GOLEM_PLAYER_ID);
+  player.currentTime = time
 })

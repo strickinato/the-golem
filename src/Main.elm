@@ -9,16 +9,19 @@ import Html.Styled.Events as Events
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra as Decode
 import Json.Encode as Encode
+import List.Extra
 import Random exposing (Generator)
 import Random.Extra as Random exposing (andMap)
 import Svg.Styled as Svg exposing (Svg)
-import Svg.Styled.Attributes as SvgAttributes
 
 
-port clickedPlay : Int -> Cmd msg
+port clickedPlay : () -> Cmd msg
 
 
 port clickedPause : () -> Cmd msg
+
+
+port goToTime : Float -> Cmd msg
 
 
 main =
@@ -32,7 +35,6 @@ main =
 
 type alias Model =
     { songs : Dict Int Song
-    , currentSong : Int
     , playerState : PlayerState
     , currentTime : Float
     , mediaUrls : MediaUrls
@@ -44,8 +46,9 @@ type alias Song =
     { name : String
     , audioUrl : String
     , imageUrl : String
-    , duration : Maybe Float
+    , duration : Float
     , numeralUrl : String
+    , startingTime : Float
     }
 
 
@@ -66,14 +69,10 @@ type PlayerState
 type Msg
     = NoOp
     | Start
-    | ReceivedMetadata Int Metadata
     | ReceivedTimeUpdate Float
-    | ReceivedSongEnded Int
+    | ReceivedPlay
+    | ReceivedPause
     | PlayerAction PlayerAction
-
-
-type alias Metadata =
-    { duration : Float }
 
 
 type PlayerAction
@@ -91,7 +90,6 @@ init incomingJson =
                 |> Result.withDefault flagsDefault
     in
     ( { songs = flags.songs
-      , currentSong = 0
       , mediaUrls = flags.mediaUrls
       , playerState = Paused
       , currentTime = 0
@@ -141,19 +139,22 @@ songsDecoder =
 
 songDecoder : Decoder Song
 songDecoder =
-    Decode.map4
-        (\name audioUrl imageUrl numeralUrl ->
+    Decode.map6
+        (\name audioUrl imageUrl numeralUrl duration startingTime ->
             { name = name
             , audioUrl = audioUrl
             , imageUrl = imageUrl
-            , duration = Nothing
+            , duration = duration
             , numeralUrl = numeralUrl
+            , startingTime = startingTime
             }
         )
         (Decode.field "name" Decode.string)
         (Decode.field "audioUrl" Decode.string)
         (Decode.field "imageUrl" Decode.string)
         (Decode.field "numeral" Decode.string)
+        (Decode.field "duration" Decode.float)
+        (Decode.field "startingTime" Decode.float)
 
 
 totalSongs : Model -> Int
@@ -172,25 +173,21 @@ update msg model =
                 | playerState = Playing
                 , hasStarted = True
               }
-            , clickedPlay 0
+            , clickedPlay ()
             )
 
-        ReceivedTimeUpdate currentTime ->
-            ( { model | currentTime = currentTime }
+        ReceivedPlay ->
+            ( { model | playerState = Playing }
             , Cmd.none
             )
 
-        ReceivedSongEnded _ ->
-            ( { model | currentSong = model.currentSong + 1, currentTime = 0 }
-            , clickedPlay (model.currentSong + 1)
+        ReceivedPause ->
+            ( { model | playerState = Paused }
+            , Cmd.none
             )
 
-        ReceivedMetadata songNumber metaData ->
-            let
-                updateFn song =
-                    song |> Maybe.map (\s -> { s | duration = Just metaData.duration })
-            in
-            ( { model | songs = Dict.update songNumber updateFn model.songs }
+        ReceivedTimeUpdate currentTime ->
+            ( { model | currentTime = Debug.log "new cur time" currentTime }
             , Cmd.none
             )
 
@@ -205,29 +202,135 @@ updateGolemFromAction model playerAction =
             ( { model | playerState = Paused }, clickedPause () )
 
         PlayAction ->
-            ( { model | playerState = Playing }, clickedPlay model.currentSong )
+            ( { model | playerState = Playing }, clickedPlay () )
 
         NextAction ->
-            let
-                nextSong =
-                    min (totalSongs model - 1) (model.currentSong + 1)
-            in
-            ( { model | currentSong = nextSong }
-            , clickedPlay nextSong
-            )
+            case nextSong model of
+                Just song ->
+                    ( { model | currentTime = song.startingTime }
+                    , goToTime (Debug.log "GOING TO" song.startingTime)
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
         PrevAction ->
-            let
-                prevSong =
-                    if model.currentTime > 2 then
-                        model.currentSong
+            case prevSong model of
+                Just song ->
+                    ( { model | currentTime = song.startingTime }
+                    , goToTime (Debug.log "GOING TO" song.startingTime)
+                    )
 
-                    else
-                        max 0 (model.currentSong - 1)
-            in
-            ( { model | currentSong = prevSong }
-            , clickedPlay prevSong
-            )
+                Nothing ->
+                    ( model, Cmd.none )
+
+
+songsForTime : Model -> Float -> { current : Maybe ( Song, Int ), prev : Maybe Song, next : Maybe Song }
+songsForTime model forTime =
+    let
+        curr =
+            Dict.toList model.songs
+                |> List.sortBy (\( _, { startingTime } ) -> startingTime)
+                |> List.reverse
+                |> List.Extra.find (\( i, song ) -> forTime >= song.startingTime)
+    in
+    case curr of
+        Just ( i, song ) ->
+            { current = Just ( song, i )
+            , next = Dict.get (i + 1) model.songs
+            , prev =
+                if forTime - song.startingTime < 3 then
+                    Dict.get (i - 1) model.songs
+
+                else
+                    Just song
+            }
+
+        Nothing ->
+            { current = Nothing, prev = Nothing, next = Nothing }
+
+
+currentSong : Model -> Maybe ( Song, Int )
+currentSong model =
+    songsForTime model model.currentTime
+        |> .current
+
+
+currentSongIndex : Model -> Maybe Int
+currentSongIndex model =
+    currentSong model
+        |> Maybe.map Tuple.second
+
+
+nextSong : Model -> Maybe Song
+nextSong model =
+    songsForTime model model.currentTime
+        |> Debug.log "songs for time"
+        |> .next
+
+
+prevSong : Model -> Maybe Song
+prevSong model =
+    songsForTime model model.currentTime
+        |> .prev
+
+
+
+--     let
+--         songsThatAlreadyStarted =
+--             (model.songs |> Dict.values)
+--                 |> List.filter (\song -> song.startingTime <= model.currentTime)
+--     in
+--     songsThatAlreadyStarted
+--         |> List.Extra.last
+-- nextSong : Model -> Maybe Song
+-- nextSong model =
+--     let
+--         songsLeft =
+--             (model.songs |> Dict.values) |> List.filter (\song -> song.startingTime <= model.currentTime)
+--     in
+--     case songsLeft of
+--         [] ->
+--             Nothing
+--         [ onLastSong ] ->
+--             Nothing
+--         current :: next :: _ ->
+--             Just next
+-- prevSong : Model -> Maybe Song
+-- prevSong model =
+--     let
+--         reversedSongsThatStarted =
+--             (model.songs |> Dict.values)
+--                 |> List.filter (\song -> song.startingTime <= model.currentTime)
+--                 |> List.reverse
+--     in
+--     case reversedSongsThatStarted of
+--         [] ->
+--             Nothing
+--          currentSong :: []  ->
+--             Just currentSong
+--         current :: next :: _ ->
+--             Just next
+-- let
+--     defaultSong =
+--         Dict.get 0 model.songs
+-- in
+-- case defaultSong of
+--     Just song_ ->
+--         List.foldr
+--             (\song ( accDur, accSong ) ->
+--                  case accSong of
+--                      Just foundItAlreadySong ->
+--                         (0, foundItAlreadySong)
+--                      Nothing ->
+--                         if model.currentTime < accDur then
+--                             (accDur + song.duration, Nothing)
+--             )
+--             ( defaultSong.duration, Nothing )
+--             (model.songs |> Dict.values)
+--             |> Tuple.second
+--     Nothing ->
+--         Nothing
 
 
 view : Model -> Html Msg
@@ -289,7 +392,7 @@ view model =
                     , Attributes.tabindex 0
                     ]
                     [ Html.img
-                        [ Attributes.src model.mediaUrls.cover
+                        [ Attributes.src (Debug.log "HIHIH" model.mediaUrls.cover)
                         , Attributes.alt "Cover image for The Golem, by Sam Reider and the Human Hands"
                         , Events.onClick Start
                         , css [ width (pct 100) ]
@@ -316,28 +419,21 @@ view model =
             , paddingTop (px 24)
             ]
         ]
-        (loadPlayers model :: internal)
+        (loadMainPlayer model :: internal)
 
 
-loadPlayers : Model -> Html Msg
-loadPlayers model =
-    let
-        player ( int, song ) =
-            Html.audio
-                [ Attributes.id <| "song-" ++ String.fromInt (int + 1)
-                , Attributes.property "preload" (Encode.string "metadata")
-                , Attributes.src <| song.audioUrl
-                , Events.on "loadedmetadata"
-                    (metadataDecoder |> Decode.map (ReceivedMetadata int))
-                , Events.on "timeupdate"
-                    (timeUpdateDecoder |> Decode.map ReceivedTimeUpdate)
-                , Events.on "ended"
-                    (Decode.succeed (ReceivedSongEnded int))
-                ]
-                []
-    in
-    Html.div [ css [ display none ] ]
-        (model.songs |> Dict.toList |> List.map player)
+loadMainPlayer : Model -> Html Msg
+loadMainPlayer model =
+    Html.audio
+        [ Attributes.id "CURRENT-GOLEM-PLAYER"
+        , Attributes.property "preload" (Encode.string "metadata")
+        , Attributes.src <| "static/songs/full.mp3"
+        , Events.on "timeupdate"
+            (timeUpdateDecoder |> Decode.map ReceivedTimeUpdate)
+        , Events.on "play" (Decode.succeed ReceivedPlay)
+        , Events.on "pause" (Decode.succeed ReceivedPause)
+        ]
+        []
 
 
 viewDots : Model -> Html msg
@@ -353,7 +449,7 @@ viewDots model =
                         , Attributes.alt ("Roman Numeral for" ++ String.fromInt (i + 1))
                         , css
                             [ width (pct 100)
-                            , if model.currentSong == i then
+                            , if currentSongIndex model == Just i then
                                 property "filter" "hue-rotate(180deg)"
 
                               else
@@ -377,7 +473,9 @@ viewDots model =
 
 totalTranslation : Model -> Float
 totalTranslation model =
-    toFloat model.currentSong
+    currentSongIndex model
+        |> Maybe.withDefault 0
+        |> toFloat
         |> (*) 800
 
 
@@ -459,12 +557,6 @@ palette =
     { white = rgb 203 172 139
     , blue = rgb 128 174 209
     }
-
-
-metadataDecoder : Decoder Metadata
-metadataDecoder =
-    Decode.map Metadata
-        (Decode.at [ "target", "duration" ] Decode.float)
 
 
 timeUpdateDecoder : Decoder Float
