@@ -510,7 +510,7 @@ viewDots model =
                     [ css
                         [ width (px 44)
                         , height (px 44)
-                        , cursor pointer
+                        , buttonStyles
                         ]
                     ]
                     [ Html.img
@@ -603,7 +603,7 @@ imageButton { action, src, size, alt } =
     Html.button
         [ Events.onClick action
         , css
-            [ cursor pointer
+            [ buttonStyles
             , property "width" "fit-content"
             , displayFlex
             , alignItems center
@@ -627,6 +627,11 @@ palette =
     { white = rgb 203 172 139
     , blue = rgb 128 174 209
     }
+
+
+buttonStyles : Css.Style
+buttonStyles =
+    batch [ cursor pointer, hover [ opacity (num 0.8) ] ]
 
 
 timeUpdateDecoder : Decoder Float
