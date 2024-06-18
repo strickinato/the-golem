@@ -1,6 +1,7 @@
 port module Main exposing (..)
 
 import Browser
+import Browser.Events
 import Css exposing (..)
 import Dict exposing (Dict)
 import Html.Styled as Html exposing (Attribute, Html)
@@ -41,8 +42,15 @@ type alias Model =
     , playerState : PlayerState
     , currentTime : Float
     , mediaUrls : MediaUrls
-    , hasStarted : Bool
+    , enteredExperience : Entered
     }
+
+
+type Entered
+    = NotYet
+    | FadingOut Float
+    | FadingIn Float
+    | InExperience
 
 
 type alias Song =
@@ -75,6 +83,7 @@ type Msg
     | ReceivedTimeUpdate Float
     | ReceivedPlay
     | ReceivedPause
+    | ReceivedTick Float
     | PlayerAction PlayerAction
 
 
@@ -96,7 +105,7 @@ init incomingJson =
       , mediaUrls = flags.mediaUrls
       , playerState = Paused
       , currentTime = 0
-      , hasStarted = False
+      , enteredExperience = NotYet
       }
     , Cmd.none
     )
@@ -174,7 +183,7 @@ update msg model =
         Start ->
             ( { model
                 | playerState = Playing
-                , hasStarted = True
+                , enteredExperience = FadingOut 0
               }
             , clickedPlay ()
             )
@@ -188,6 +197,9 @@ update msg model =
             ( { model | playerState = Paused }
             , Cmd.none
             )
+
+        ReceivedTick tick ->
+            ( advanceFade model tick, Cmd.none )
 
         ReceivedTimeUpdate currentTime ->
             let
@@ -205,6 +217,37 @@ update msg model =
 
         PlayerAction playerAction ->
             updateGolemFromAction model playerAction
+
+
+advanceFade : Model -> Float -> Model
+advanceFade model float =
+    let
+        duration =
+            500
+
+        newExperience =
+            case model.enteredExperience of
+                NotYet ->
+                    NotYet
+
+                FadingOut cur ->
+                    if cur + (float / duration) > 1 then
+                        FadingIn 0
+
+                    else
+                        FadingOut <| cur + (float / duration)
+
+                FadingIn cur ->
+                    if cur + (float / duration) > 1 then
+                        InExperience
+
+                    else
+                        FadingIn <| cur + (float / duration)
+
+                InExperience ->
+                    InExperience
+    in
+    { model | enteredExperience = newExperience }
 
 
 updateGolemFromAction : Model -> PlayerAction -> ( Model, Cmd Msg )
@@ -288,69 +331,59 @@ prevSong model =
         |> .prev
 
 
+isFading : Model -> Bool
+isFading model =
+    case model.enteredExperience of
+        NotYet ->
+            False
 
---     let
---         songsThatAlreadyStarted =
---             (model.songs |> Dict.values)
---                 |> List.filter (\song -> song.startingTime <= model.currentTime)
---     in
---     songsThatAlreadyStarted
---         |> List.Extra.last
--- nextSong : Model -> Maybe Song
--- nextSong model =
---     let
---         songsLeft =
---             (model.songs |> Dict.values) |> List.filter (\song -> song.startingTime <= model.currentTime)
---     in
---     case songsLeft of
---         [] ->
---             Nothing
---         [ onLastSong ] ->
---             Nothing
---         current :: next :: _ ->
---             Just next
--- prevSong : Model -> Maybe Song
--- prevSong model =
---     let
---         reversedSongsThatStarted =
---             (model.songs |> Dict.values)
---                 |> List.filter (\song -> song.startingTime <= model.currentTime)
---                 |> List.reverse
---     in
---     case reversedSongsThatStarted of
---         [] ->
---             Nothing
---          currentSong :: []  ->
---             Just currentSong
---         current :: next :: _ ->
---             Just next
--- let
---     defaultSong =
---         Dict.get 0 model.songs
--- in
--- case defaultSong of
---     Just song_ ->
---         List.foldr
---             (\song ( accDur, accSong ) ->
---                  case accSong of
---                      Just foundItAlreadySong ->
---                         (0, foundItAlreadySong)
---                      Nothing ->
---                         if model.currentTime < accDur then
---                             (accDur + song.duration, Nothing)
---             )
---             ( defaultSong.duration, Nothing )
---             (model.songs |> Dict.values)
---             |> Tuple.second
---     Nothing ->
---         Nothing
+        FadingOut _ ->
+            True
+
+        FadingIn _ ->
+            True
+
+        InExperience ->
+            False
+
+
+hasStarted : Model -> Bool
+hasStarted model =
+    case model.enteredExperience of
+        NotYet ->
+            False
+
+        FadingOut _ ->
+            False
+
+        FadingIn _ ->
+            True
+
+        InExperience ->
+            True
+
+
+calcOpacity : Model -> Css.Style
+calcOpacity model =
+    case model.enteredExperience of
+        NotYet ->
+            batch []
+
+        FadingOut f ->
+            opacity (num (1 - f))
+
+        FadingIn f ->
+            opacity (num f)
+
+        InExperience ->
+            batch []
 
 
 view : Model -> Html Msg
 view model =
     let
         internal =
-            if model.hasStarted then
+            if hasStarted model then
                 [ Html.div
                     [ css
                         [ maxWidth (px 800)
@@ -430,6 +463,7 @@ view model =
             , maxWidth (px 800)
             , margin2 zero auto
             , paddingTop (px 24)
+            , calcOpacity model
             ]
         ]
         (loadMainPlayer model :: internal)
@@ -579,4 +613,8 @@ timeUpdateDecoder =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch []
+    if isFading model then
+        Browser.Events.onAnimationFrameDelta ReceivedTick
+
+    else
+        Sub.batch []
