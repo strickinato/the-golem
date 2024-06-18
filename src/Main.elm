@@ -437,9 +437,9 @@ view model =
                         , width (px 200)
                         ]
                     ]
-                    [ trackButton Prev
-                    , playButton model.playerState
-                    , trackButton Next
+                    [ trackButton model Prev
+                    , playButton model
+                    , trackButton model Next
                     ]
                 ]
 
@@ -464,7 +464,7 @@ view model =
                     ]
                 , imageButton
                     { action = Start
-                    , src = "static/images/play.webp"
+                    , src = model.mediaUrls.play
                     , alt = "Click to enter the golem"
                     , size = 32
                     }
@@ -554,13 +554,13 @@ type Direction
     | Prev
 
 
-trackButton : Direction -> Html Msg
-trackButton direction =
+trackButton : Model -> Direction -> Html Msg
+trackButton model direction =
     case direction of
         Next ->
             imageButton
                 { action = PlayerAction NextAction
-                , src = "static/images/next.webp"
+                , src = model.mediaUrls.next
                 , alt = "Go to next song"
                 , size = 16
                 }
@@ -568,19 +568,19 @@ trackButton direction =
         Prev ->
             imageButton
                 { action = PlayerAction PrevAction
-                , src = "static/images/prev.webp"
+                , src = model.mediaUrls.prev
                 , alt = "Go to previous song"
                 , size = 16
                 }
 
 
-playButton : PlayerState -> Html Msg
-playButton state =
-    case state of
+playButton : Model -> Html Msg
+playButton model =
+    case model.playerState of
         Playing ->
             imageButton
                 { action = PlayerAction PauseAction
-                , src = "static/images/pause.webp"
+                , src = model.mediaUrls.pause
                 , size = 32
                 , alt = "pause button"
                 }
@@ -588,7 +588,7 @@ playButton state =
         Paused ->
             imageButton
                 { action = PlayerAction PlayAction
-                , src = "static/images/play.webp"
+                , src = model.mediaUrls.play
                 , size = 32
                 , alt = "play button"
                 }
