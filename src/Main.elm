@@ -45,6 +45,7 @@ type alias Song =
     , audioUrl : String
     , imageUrl : String
     , duration : Maybe Float
+    , numeralUrl : String
     }
 
 
@@ -140,17 +141,19 @@ songsDecoder =
 
 songDecoder : Decoder Song
 songDecoder =
-    Decode.map3
-        (\name audioUrl imageUrl ->
+    Decode.map4
+        (\name audioUrl imageUrl numeralUrl ->
             { name = name
             , audioUrl = audioUrl
             , imageUrl = imageUrl
             , duration = Nothing
+            , numeralUrl = numeralUrl
             }
         )
         (Decode.field "name" Decode.string)
         (Decode.field "audioUrl" Decode.string)
         (Decode.field "imageUrl" Decode.string)
+        (Decode.field "numeral" Decode.string)
 
 
 totalSongs : Model -> Int
@@ -260,6 +263,7 @@ view model =
                                     []
                             )
                     )
+                , viewDots model
                 , Html.div
                     [ css
                         [ displayFlex
@@ -271,7 +275,6 @@ view model =
                     , playButton model.playerState
                     , trackButton Next
                     ]
-                , viewDots model
                 ]
 
             else
@@ -307,7 +310,10 @@ view model =
             , flexDirection column
             , justifyContent center
             , alignItems center
-            , property "gap" "8px"
+            , property "gap" "24px"
+            , maxWidth (px 800)
+            , margin2 zero auto
+            , paddingTop (px 24)
             ]
         ]
         (loadPlayers model :: internal)
@@ -336,109 +342,43 @@ loadPlayers model =
 
 viewDots : Model -> Html msg
 viewDots model =
-    let
-        numDots =
-            16
+    model.songs
+        |> Dict.toList
+        |> List.map
+            (\( i, song ) ->
+                Html.div
+                    [ css [ width (px 44), height (px 44) ] ]
+                    [ Html.img
+                        [ Attributes.src song.numeralUrl
+                        , Attributes.alt ("Roman Numeral for" ++ String.fromInt (i + 1))
+                        , css
+                            [ width (pct 100)
+                            , if model.currentSong == i then
+                                property "filter" "hue-rotate(180deg)"
 
-        pxWidth =
-            480
-
-        ( dots, _ ) =
-            Random.step (Random.list numDots dotGenerator) (Random.initialSeed 0)
-
-        currentDot =
-            Dict.get model.currentSong model.songs
-                |> Maybe.andThen .duration
-                |> Maybe.withDefault 100000
-                |> (\dur -> model.currentTime / dur)
-                |> (\normalPos -> floor (normalPos * numDots))
-    in
-    Html.div
-        [ css
-            [ width (px pxWidth)
-            , displayFlex
-            , justifyContent center
-            , property "gap" "8px"
+                              else
+                                batch []
+                            ]
+                        ]
+                        []
+                    ]
+            )
+        |> Html.div
+            [ css
+                [ displayFlex
+                , property "gap" "24px"
+                , alignItems center
+                , justifyContent center
+                , width (pct 100)
+                , padding2 zero (px 24)
+                ]
             ]
-        ]
-        (dots
-            |> List.indexedMap
-                (\index dot_ ->
-                    if index > currentDot then
-                        dot_ palette.white
-
-                    else
-                        dot_ palette.blue
-                )
-        )
 
 
 totalTranslation : Model -> Float
 totalTranslation model =
     toFloat model.currentSong
         |> (*) 800
-
-
-dot : { n : ( Int, Int ), s : ( Int, Int ), e : ( Int, Int ), w : ( Int, Int ) } -> Color -> Svg msg
-dot { n, s, e, w } color =
-    let
-        toString ( x, y ) =
-            String.fromInt x ++ " " ++ String.fromInt y
-
-        pointPairs =
-            [ s, e, w ] |> List.map toString
-
-        d =
-            [ "M "
-            , toString n
-            , " "
-            , List.intersperse "L " pointPairs |> String.concat
-            , " "
-            , toString n
-            , " Z"
-            ]
-                |> String.concat
-    in
-    Svg.svg
-        [ SvgAttributes.width "12"
-        , SvgAttributes.height "12"
-        , SvgAttributes.viewBox "0 0 100 100"
-        ]
-        [ Svg.path
-            [ SvgAttributes.css [ fill color ]
-            , SvgAttributes.d d
-            ]
-            []
-        ]
-
-
-dotGenerator : Generator (Color -> Svg msg)
-dotGenerator =
-    let
-        range =
-            12
-
-        fromBase ( x, y ) =
-            Random.pair
-                (Random.int (range * -1) range |> Random.map ((+) x) |> Random.map (clamp 0 100))
-                (Random.int (range * -1) range |> Random.map ((+) y) |> Random.map (clamp 0 100))
-    in
-    Random.map
-        (\n s e w ->
-            dot { n = n, e = e, s = s, w = w }
-        )
-        (fromBase ( 50, 0 ))
-        |> Random.andMap (fromBase ( 0, 50 ))
-        |> Random.andMap (fromBase ( 50, 100 ))
-        |> Random.andMap (fromBase ( 100, 50 ))
-
-
-
--- <?xml version="1.0" encoding="UTF-8"?>
--- <!-- Generated by Pixelmator Pro 3.3.11 -->
--- <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
---     <path fill="#000000" stroke="#000000" d="M 36 4 L 4 55 L 45 86 L 76 44 L 36 4 Z"/>
--- </svg>
 
 
 type Direction
