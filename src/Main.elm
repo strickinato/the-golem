@@ -21,6 +21,9 @@ port clickedPlay : () -> Cmd msg
 port clickedPause : () -> Cmd msg
 
 
+port informSong : Int -> Cmd msg
+
+
 port goToTime : Float -> Cmd msg
 
 
@@ -187,8 +190,17 @@ update msg model =
             )
 
         ReceivedTimeUpdate currentTime ->
-            ( { model | currentTime = Debug.log "new cur time" currentTime }
-            , Cmd.none
+            let
+                newModel =
+                    { model | currentTime = currentTime }
+            in
+            ( newModel
+            , case currentSongIndex newModel of
+                Just i ->
+                    informSong i
+
+                Nothing ->
+                    Cmd.none
             )
 
         PlayerAction playerAction ->
@@ -202,13 +214,15 @@ updateGolemFromAction model playerAction =
             ( { model | playerState = Paused }, clickedPause () )
 
         PlayAction ->
-            ( { model | playerState = Playing }, clickedPlay () )
+            ( { model | playerState = Playing }
+            , clickedPlay ()
+            )
 
         NextAction ->
             case nextSong model of
                 Just song ->
                     ( { model | currentTime = song.startingTime }
-                    , goToTime (Debug.log "GOING TO" song.startingTime)
+                    , goToTime song.startingTime
                     )
 
                 Nothing ->
@@ -218,7 +232,7 @@ updateGolemFromAction model playerAction =
             case prevSong model of
                 Just song ->
                     ( { model | currentTime = song.startingTime }
-                    , goToTime (Debug.log "GOING TO" song.startingTime)
+                    , goToTime song.startingTime
                     )
 
                 Nothing ->
@@ -265,7 +279,6 @@ currentSongIndex model =
 nextSong : Model -> Maybe Song
 nextSong model =
     songsForTime model model.currentTime
-        |> Debug.log "songs for time"
         |> .next
 
 
@@ -392,7 +405,7 @@ view model =
                     , Attributes.tabindex 0
                     ]
                     [ Html.img
-                        [ Attributes.src (Debug.log "HIHIH" model.mediaUrls.cover)
+                        [ Attributes.src model.mediaUrls.cover
                         , Attributes.alt "Cover image for The Golem, by Sam Reider and the Human Hands"
                         , Events.onClick Start
                         , css [ width (pct 100) ]

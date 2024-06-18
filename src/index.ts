@@ -21,26 +21,25 @@ const app = Elm.Main.init({
 });
 
 
-app.ports.clickedPlay.subscribe((songNumber) => {
-  const player = document.getElementById(GOLEM_PLAYER_ID);
-  player.play()
 
-  // if (window.navigator) {
 
-  //   navigator.mediaSession.metadata = new MediaMetadata({
-  //     title: SONGS[songNumber].name,
-  //     artist: ARTIST,
-  //     album: ALBUM,
-  //     artwork: [
-  //       {
-  //         src: SONGS[songNumber].imageUrl,
-  //         sizes: "878x878",
-  //         type: "image/jpg",
-  //       }
-  //     ],
-  //   });
-  // }
 
+app.ports.informSong.subscribe((songNumber) => {
+  if (window.navigator) {
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: SONGS[songNumber].name,
+      artist: ARTIST,
+      album: ALBUM,
+      artwork: [
+        {
+          src: SONGS[songNumber].imageUrl,
+          sizes: "878x878",
+          type: "image/jpg",
+        }
+      ],
+    });
+  }
 })
 
 app.ports.clickedPause.subscribe(() => {
@@ -48,7 +47,13 @@ app.ports.clickedPause.subscribe(() => {
   player.pause()
 })
 
+app.ports.clickedPlay.subscribe(() => {
+  const player = document.getElementById(GOLEM_PLAYER_ID);
+  player.play()
+})
+
 app.ports.goToTime.subscribe((time) => {
   const player = document.getElementById(GOLEM_PLAYER_ID);
   player.currentTime = time
 })
+
