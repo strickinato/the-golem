@@ -63,6 +63,7 @@ const SQUARESPACE_MEDIA = {
   pause: "https://images.squarespace-cdn.com/content/v1/5457d939e4b0d5b75c105e2f/1718868509268-YOAANRH2XRJPYR5DZBRX/pause.png",
   play: "https://images.squarespace-cdn.com/content/v1/5457d939e4b0d5b75c105e2f/1718868509769-A03J2LGDDQON0EK59L1F/play.png",
   prev: "https://images.squarespace-cdn.com/content/v1/5457d939e4b0d5b75c105e2f/1718868510279-N6U2EPB44JNYAH4OUJQC/prev.png",
+  fullSong: "https://static1.squarespace.com/static/5457d939e4b0d5b75c105e2f/t/6673ddadeeae456721d98815/1718869451082/full.mp3/original/full.mp3",
 }
 
 const STATIC_SONGS = [
@@ -131,6 +132,7 @@ const STATIC_MEDIA = {
   play: "/static/images/play.png",
   prev: "/static/images/prev.png",
   pause: "/static/images/pause.png",
+  fullSong: "/static/songs/full.mp3",
 }
 
 export const GET_ASSETS = () => {

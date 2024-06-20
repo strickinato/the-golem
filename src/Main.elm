@@ -68,6 +68,7 @@ type alias MediaUrls =
     , play : String
     , prev : String
     , next : String
+    , fullSong : String
     }
 
 
@@ -125,18 +126,19 @@ flagsDecoder =
 flagsDefault : Flags
 flagsDefault =
     { songs = Dict.empty
-    , mediaUrls = MediaUrls "" "" "" "" ""
+    , mediaUrls = MediaUrls "" "" "" "" "" ""
     }
 
 
 mediaUrlsDecoder : Decoder MediaUrls
 mediaUrlsDecoder =
-    Decode.map5 MediaUrls
+    Decode.map6 MediaUrls
         (Decode.field "cover" Decode.string)
         (Decode.field "pause" Decode.string)
         (Decode.field "play" Decode.string)
         (Decode.field "prev" Decode.string)
         (Decode.field "next" Decode.string)
+        (Decode.field "fullSong" Decode.string)
 
 
 songsDecoder : Decoder (Dict Int Song)
@@ -488,7 +490,7 @@ loadMainPlayer model =
     Html.audio
         [ Attributes.id "CURRENT-GOLEM-PLAYER"
         , Attributes.property "preload" (Encode.string "metadata")
-        , Attributes.src <| "static/songs/full.mp3"
+        , Attributes.src <| model.mediaUrls.fullSong
         , Events.on "timeupdate"
             (timeUpdateDecoder |> Decode.map ReceivedTimeUpdate)
         , Events.on "play" (Decode.succeed ReceivedPlay)
