@@ -5,7 +5,7 @@ const { SONGS, MEDIA_URLS } = GET_ASSETS()
 
 
 const ELEMENT_ID = "golem-mount-point"
-const GOLEM_PLAYER_ID = "CURRENT-GOLEM-PLAYER"
+const GOLEM_PLAYER_ID = "GOLEM_ELM_PLAYER"
 
 const ARTIST = "Sam Reider & The Human Hands"
 const ALBUM = "The Golem and Other Tales"

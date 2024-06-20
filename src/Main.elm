@@ -18,6 +18,14 @@ import Svg.Styled as Svg exposing (Svg)
 import Task
 
 
+applicationID =
+    "GOLEM_ELM_APPLICATION"
+
+
+audioPlayerID =
+    "GOLEM_ELM_PLAYER"
+
+
 port clickedPlay : () -> Cmd msg
 
 
@@ -89,6 +97,7 @@ type Msg
     | ReceivedTick Float
     | PlayerAction PlayerAction
     | GotWidth Float
+    | Resized
 
 
 type PlayerAction
@@ -105,14 +114,6 @@ init incomingJson =
         flags =
             Decode.decodeValue flagsDecoder incomingJson
                 |> Result.withDefault flagsDefault
-
-        getWidth res =
-            case res of
-                Ok scene ->
-                    GotWidth scene.element.width
-
-                Err _ ->
-                    NoOp
     in
     ( { songs = flags.songs
       , mediaUrls = flags.mediaUrls
@@ -121,8 +122,22 @@ init incomingJson =
       , enteredExperience = NotYet
       , realAppWidth = flags.realWidth
       }
-    , Task.attempt getWidth (Browser.Dom.getElement "GOLEM_APPLICATION")
+    , getWidth
     )
+
+
+getWidth : Cmd Msg
+getWidth =
+    let
+        handler res =
+            case res of
+                Ok scene ->
+                    GotWidth scene.element.width
+
+                Err _ ->
+                    NoOp
+    in
+    Task.attempt handler (Browser.Dom.getElement applicationID)
 
 
 type alias Flags =
@@ -238,6 +253,9 @@ update msg model =
 
         GotWidth float ->
             ( { model | realAppWidth = float }, Cmd.none )
+
+        Resized ->
+            ( model, getWidth )
 
 
 advanceFade : Model -> Float -> Model
@@ -502,7 +520,7 @@ view model =
             , paddingTop (px 24)
             , calcOpacity model
             ]
-        , Attributes.id "GOLEM_APPLICATION"
+        , Attributes.id applicationID
         ]
         (loadMainPlayer model :: internal)
 
@@ -510,7 +528,7 @@ view model =
 loadMainPlayer : Model -> Html Msg
 loadMainPlayer model =
     Html.audio
-        [ Attributes.id "CURRENT-GOLEM-PLAYER"
+        [ Attributes.id audioPlayerID
         , Attributes.property "preload" (Encode.string "metadata")
         , Attributes.src <| model.mediaUrls.fullSong
         , Events.on "timeupdate"
@@ -662,8 +680,11 @@ timeUpdateDecoder =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    if isFading model then
-        Browser.Events.onAnimationFrameDelta ReceivedTick
+    Sub.batch
+        [ if isFading model then
+            Browser.Events.onAnimationFrameDelta ReceivedTick
 
-    else
-        Sub.batch []
+          else
+            Sub.batch []
+        , Browser.Events.onResize (\_ _ -> Resized)
+        ]
