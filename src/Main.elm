@@ -1,6 +1,7 @@
 port module Main exposing (..)
 
 import Browser
+import Browser.Dom
 import Browser.Events
 import Css exposing (..)
 import Dict exposing (Dict)
@@ -14,6 +15,7 @@ import List.Extra
 import Random exposing (Generator)
 import Random.Extra as Random exposing (andMap)
 import Svg.Styled as Svg exposing (Svg)
+import Task
 
 
 port clickedPlay : () -> Cmd msg
@@ -43,6 +45,7 @@ type alias Model =
     , currentTime : Float
     , mediaUrls : MediaUrls
     , enteredExperience : Entered
+    , realAppWidth : Float
     }
 
 
@@ -85,6 +88,7 @@ type Msg
     | ReceivedPause
     | ReceivedTick Float
     | PlayerAction PlayerAction
+    | GotWidth Float
 
 
 type PlayerAction
@@ -101,32 +105,46 @@ init incomingJson =
         flags =
             Decode.decodeValue flagsDecoder incomingJson
                 |> Result.withDefault flagsDefault
+
+        getWidth res =
+            case res of
+                Ok scene ->
+                    GotWidth scene.element.width
+
+                Err _ ->
+                    NoOp
     in
     ( { songs = flags.songs
       , mediaUrls = flags.mediaUrls
       , playerState = Paused
       , currentTime = 0
       , enteredExperience = NotYet
+      , realAppWidth = flags.realWidth
       }
-    , Cmd.none
+    , Task.attempt getWidth (Browser.Dom.getElement "GOLEM_APPLICATION")
     )
 
 
 type alias Flags =
-    { songs : Dict Int Song, mediaUrls : MediaUrls }
+    { songs : Dict Int Song
+    , mediaUrls : MediaUrls
+    , realWidth : Float
+    }
 
 
 flagsDecoder : Decoder Flags
 flagsDecoder =
-    Decode.map2 Flags
+    Decode.map3 Flags
         (Decode.field "songs" songsDecoder)
         (Decode.field "mediaUrls" mediaUrlsDecoder)
+        (Decode.field "width" Decode.float)
 
 
 flagsDefault : Flags
 flagsDefault =
     { songs = Dict.empty
     , mediaUrls = MediaUrls "" "" "" "" "" ""
+    , realWidth = 0
     }
 
 
@@ -217,6 +235,9 @@ update msg model =
 
         PlayerAction playerAction ->
             updateGolemFromAction model playerAction
+
+        GotWidth float ->
+            ( { model | realAppWidth = float }, Cmd.none )
 
 
 advanceFade : Model -> Float -> Model
@@ -481,6 +502,7 @@ view model =
             , paddingTop (px 24)
             , calcOpacity model
             ]
+        , Attributes.id "GOLEM_APPLICATION"
         ]
         (loadMainPlayer model :: internal)
 
@@ -545,7 +567,7 @@ totalTranslation model =
     currentSongIndex model
         |> Maybe.withDefault 0
         |> toFloat
-        |> (*) 800
+        |> (*) model.realAppWidth
 
 
 type Direction

@@ -11,17 +11,18 @@ const ARTIST = "Sam Reider & The Human Hands"
 const ALBUM = "The Golem and Other Tales"
 
 const node = document.getElementById(ELEMENT_ID);
+node.style.maxWidth = "800px";
+
+const width = node?.getBoundingClientRect().width
 
 const app = Elm.Main.init({
   node,
   flags: {
+    width,
     songs: SONGS,
     mediaUrls: MEDIA_URLS,
   },
 });
-
-
-
 
 
 app.ports.informSong.subscribe((songNumber) => {
