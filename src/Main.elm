@@ -55,7 +55,6 @@ type Entered
 
 type alias Song =
     { name : String
-    , audioUrl : String
     , imageUrl : String
     , duration : Float
     , numeralUrl : String
@@ -152,10 +151,9 @@ songsDecoder =
 
 songDecoder : Decoder Song
 songDecoder =
-    Decode.map6
-        (\name audioUrl imageUrl numeralUrl duration startingTime ->
+    Decode.map5
+        (\name imageUrl numeralUrl duration startingTime ->
             { name = name
-            , audioUrl = audioUrl
             , imageUrl = imageUrl
             , duration = duration
             , numeralUrl = numeralUrl
@@ -163,7 +161,6 @@ songDecoder =
             }
         )
         (Decode.field "name" Decode.string)
-        (Decode.field "audioUrl" Decode.string)
         (Decode.field "imageUrl" Decode.string)
         (Decode.field "numeral" Decode.string)
         (Decode.field "duration" Decode.float)
