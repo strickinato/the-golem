@@ -11,7 +11,7 @@ const ARTIST = "Sam Reider & The Human Hands"
 const ALBUM = "The Golem and Other Tales"
 
 const node = document.getElementById(ELEMENT_ID);
-node.style.maxWidth = "800px";
+node.style.maxWidth = "600px";
 
 const width = node?.getBoundingClientRect().width
 

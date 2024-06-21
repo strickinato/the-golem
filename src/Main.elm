@@ -26,6 +26,10 @@ audioPlayerID =
     "GOLEM_ELM_PLAYER"
 
 
+globalMaxWidth =
+    maxWidth (px 600)
+
+
 port clickedPlay : () -> Cmd msg
 
 
@@ -441,7 +445,7 @@ view model =
             if hasStarted model then
                 [ Html.div
                     [ css
-                        [ maxWidth (px 800)
+                        [ globalMaxWidth
                         , displayFlex
                         , overflow hidden
                         ]
@@ -484,7 +488,7 @@ view model =
             else
                 [ Html.div
                     [ css
-                        [ maxWidth (px 800)
+                        [ globalMaxWidth
                         , displayFlex
                         , cursor pointer
                         ]
@@ -515,7 +519,7 @@ view model =
             , justifyContent center
             , alignItems center
             , property "gap" "24px"
-            , maxWidth (px 800)
+            , globalMaxWidth
             , margin2 zero auto
             , paddingTop (px 24)
             , calcOpacity model
